@@ -1,0 +1,1433 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>部落誠實商店 - 自助結帳系統</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- Tailwind CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      font-family: "Microsoft JhengHei", system-ui, -apple-system,
+        BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background-color: #f3f4f6;
+    }
+
+    @keyframes blink {
+      0% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: 0;
+      }
+
+      100% {
+        opacity: 1;
+      }
+    }
+
+    .animate-blink {
+      animation: blink 1.2s infinite;
+    }
+  </style>
+</head>
+
+<body class="min-h-screen bg-slate-100">
+  <div id="root"></div>
+
+  <!-- React & ReactDOM UMD + Babel -->
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <script type="text/babel" data-presets="env,react">
+    const { useState, useEffect, useRef, useMemo } = React;
+
+    // ---- Mock 商品資料 ----
+    const MOCK_ITEMS = [
+      { id: 1, name: "蘋果", price: 30, image: "🍎" },
+      { id: 2, name: "香蕉", price: 25, image: "🍌" },
+      { id: 3, name: "沙拉油", price: 120, image: "🧴" },
+      { id: 4, name: "白米 1kg", price: 85, image: "🍚" },
+      { id: 5, name: "餅乾", price: 50, image: "🍪" },
+    ];
+
+    // A：辨識信心度門檻（越高＝越常要確認；越低＝越常自動加入）
+    const CONFIRM_THRESHOLD = 0.78;
+
+    function getRandomMockItem() {
+      const base = MOCK_ITEMS[Math.floor(Math.random() * MOCK_ITEMS.length)];
+      // 模擬辨識信心度：0.55 ~ 0.98
+      const confidence = Math.round((0.55 + Math.random() * 0.43) * 100) / 100;
+      return { ...base, quantity: 1, confidence };
+    }
+
+    //12.31改
+    // function getRandomMockItem() {
+    //   const base = MOCK_ITEMS[Math.floor(Math.random() * MOCK_ITEMS.length)];
+    //   return { ...base, quantity: 1 };
+    // }
+
+    // 相機元件：啟動 getUserMedia、顯示畫面並處理權限/錯誤
+    // 支援外部 videoRef（用於拍照抓 frame），以及 ready/error 回報
+    function CameraView({
+      label = "CAMERA",
+      status = "LIVE",
+      children,
+      videoRef: externalVideoRef,
+      onReadyChange,
+      onErrorChange,
+    }) {
+      const internalVideoRef = useRef(null);
+      const videoRef = externalVideoRef || internalVideoRef;
+
+      const [ready, setReady] = useState(false);
+      const [error, setError] = useState("");
+
+      useEffect(() => {
+        let stream;
+
+        async function start() {
+          try {
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+              const msg = "此瀏覽器不支援相機存取（需 HTTPS 或 localhost）。";
+              setError(msg);
+              if (onErrorChange) onErrorChange(msg);
+              return;
+            }
+
+            stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+            if (videoRef.current) {
+              videoRef.current.srcObject = stream;
+              setReady(true);
+              if (onReadyChange) onReadyChange(true);
+            }
+          } catch (err) {
+            let msg = "無法啟動相機，請檢查權限或裝置。";
+            if (err && (err.name === "NotAllowedError" || err.name === "PermissionDeniedError")) {
+              msg = "相機權限被拒絕，請在網址列授權或改用 HTTPS / localhost。";
+            } else if (err && err.name === "NotFoundError") {
+              msg = "找不到可用攝影機裝置。";
+            }
+            setError(msg);
+            if (onErrorChange) onErrorChange(msg);
+            if (onReadyChange) onReadyChange(false);
+          }
+        }
+
+        start();
+
+        return () => {
+          if (onReadyChange) onReadyChange(false);
+          if (stream) stream.getTracks().forEach((t) => t.stop());
+        };
+      }, []);
+
+      return (
+        <div className="relative w-full max-w-xl aspect-video bg-black rounded-3xl shadow-2xl overflow-hidden border-4 border-slate-800">
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            muted
+            className="w-full h-full object-cover"
+          />
+
+          <div className="absolute top-4 left-4 text-xs font-mono text-green-300 bg-black/60 px-3 py-1 rounded-full">
+            {label}
+          </div>
+
+          <div className="absolute top-4 right-4 flex items-center gap-2 bg-black/60 px-4 py-2 rounded-full">
+            <div
+              className={`w-3 h-3 rounded-full ${status === "REC" || status === "SCANNING"
+                ? "bg-red-500 animate-pulse"
+                : "bg-slate-300"
+                }`}
+            />
+            <span className="text-xs text-white tracking-widest font-semibold">
+              {status}
+            </span>
+          </div>
+
+          {!ready && !error && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 text-slate-100">
+              <div className="text-5xl mb-2">📷</div>
+              <div className="text-lg mb-1">正在啟動相機...</div>
+              <div className="text-xs text-slate-300">
+                若長時間無法顯示，請檢查相機權限或改用 HTTPS / localhost。
+              </div>
+            </div>
+          )}
+
+          {error && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70 text-red-200 text-center px-4">
+              <div className="text-4xl mb-2">⚠️</div>
+              <div className="text-sm whitespace-pre-line">{error}</div>
+            </div>
+          )}
+
+          {children && (
+            <div className="absolute inset-0 pointer-events-none">{children}</div>
+          )}
+        </div>
+      );
+    }
+
+    // ---- 主組件 ----
+    function CheckoutApp() {
+      const [currentStep, setCurrentStep] = useState(1); // 1~11
+      const [cart, setCart] = useState([]);
+      const [currentItem, setCurrentItem] = useState(null);
+
+      // ===== A：掃描頁合併確認（Step 3 內完成）=====
+      const [scanNonce, setScanNonce] = useState(0); // 觸發下一輪掃描
+      const [scanPhase, setScanPhase] = useState("SCANNING"); // SCANNING | AUTO_ADDED | CONFIRM
+      const [pendingItem, setPendingItem] = useState(null); // 低信心時要確認的 item
+      const [lastAddedItem, setLastAddedItem] = useState(null); // 顯示「已加入」提示
+
+      const scanMainTimerRef = useRef(null);
+      const scanLoopTimerRef = useRef(null);
+
+      // 共用：加入任意 item 到購物車（同商品則數量 +1）
+      const addItemToCart = (item) => {
+        if (!item) return;
+        setCart((prev) => {
+          const index = prev.findIndex((p) => p.id === item.id);
+          if (index === -1) return [...prev, item];
+          const newCart = [...prev];
+          newCart[index] = {
+            ...newCart[index],
+            quantity: newCart[index].quantity + item.quantity,
+          };
+          return newCart;
+        });
+      };
+      // ===== 購物車數量調整（Step 5 用）=====
+      const increaseQty = (id) => {
+        setCart((prev) =>
+          prev.map((it) =>
+            it.id === id ? { ...it, quantity: it.quantity + 1 } : it
+          )
+        );
+      };
+
+      const decreaseQty = (id) => {
+        setCart((prev) => {
+          const target = prev.find((it) => it.id === id);
+          if (!target) return prev;
+
+          // 減到 0 就移除
+          if (target.quantity <= 1) return prev.filter((it) => it.id !== id);
+
+          return prev.map((it) =>
+            it.id === id ? { ...it, quantity: it.quantity - 1 } : it
+          );
+        });
+      };
+
+
+      // 讓你原本的 addCurrentItemToCart 也能繼續用（不破壞其他頁）
+      // const addCurrentItemToCart = () => addItemToCart(currentItem);
+
+      const restartScan = () => setScanNonce((n) => n + 1);
+
+      const handleConfirmPending = () => {
+        if (!pendingItem) return;
+        addItemToCart(pendingItem);
+        setLastAddedItem(pendingItem);
+        setPendingItem(null);
+        setScanPhase("AUTO_ADDED");
+        // 短暫顯示「已加入」後，自動下一輪掃描
+        if (scanLoopTimerRef.current) clearTimeout(scanLoopTimerRef.current);
+        scanLoopTimerRef.current = setTimeout(() => restartScan(), 900);
+      };
+
+      const handleRejectPending = () => {
+        // 不是這個商品 → 直接重掃
+        setPendingItem(null);
+        setLastAddedItem(null);
+        restartScan();
+      };
+
+
+      // 支付＋賒帳
+      const [paymentMethod, setPaymentMethod] = useState(null);
+      const [authPassword, setAuthPassword] = useState("");
+      const [authErrorMsg, setAuthErrorMsg] = useState("");
+      const [authErrorCount, setAuthErrorCount] = useState(0);
+      const [authLocked, setAuthLocked] = useState(false);
+
+      // ---- 存證：改為「拍照頁(8) → 錄音頁(9) → 確認頁(10)」----
+      const evidenceVideoRef = useRef(null);
+      const evidenceCanvasRef = useRef(null);
+
+      const [camReady, setCamReady] = useState(false);
+      const [camErr, setCamErr] = useState("");
+      const [micErr, setMicErr] = useState("");
+
+      const [evidenceSnapshot, setEvidenceSnapshot] = useState(null); // dataURL
+      const [isRecordingAudio, setIsRecordingAudio] = useState(false);
+      const [recordSec, setRecordSec] = useState(0);
+
+      const [evidenceAudioUrl, setEvidenceAudioUrl] = useState(null);
+      const [evidenceAudioBlob, setEvidenceAudioBlob] = useState(null);
+
+      const [isSavingEvidence, setIsSavingEvidence] = useState(false);
+
+      const mediaRecorderRef = useRef(null);
+      const audioChunksRef = useRef([]);
+      const timerRef = useRef(null);
+      const ignoreStopRef = useRef(false);
+
+      // 評分＆回饋
+      const [rating, setRating] = useState(0);
+      const [feedback, setFeedback] = useState("");
+
+      // Step 2: 進入結帳引導後，3 秒自動進入 Step 3
+      useEffect(() => {
+        if (currentStep === 2) {
+          const timer = setTimeout(() => {
+            setCurrentStep(3);
+          }, 3000);
+          return () => clearTimeout(timer);
+        }
+      }, [currentStep]);
+
+      // A：Step 3 掃描循環（同頁完成確認 / 自動加入）
+      useEffect(() => {
+        if (currentStep !== 3) return;
+
+        setScanPhase("SCANNING");
+        setPendingItem(null);
+
+        const t1 = setTimeout(() => {
+          const item = getRandomMockItem();
+          setCurrentItem(item); // 保留相容性
+          const ok = (item.confidence || 0) >= CONFIRM_THRESHOLD;
+
+          if (ok) {
+            // 高信心：自動加入
+            addItemToCart(item);
+            setLastAddedItem(item);
+            setScanPhase("AUTO_ADDED");
+
+            // 0.9 秒後下一輪
+            const t2 = setTimeout(() => setScanNonce((n) => n + 1), 900);
+            // 把 t2 存在 window 上只是為了 cleanup（簡單做法）
+            window.__scan_t2 = t2;
+          } else {
+            // 低信心：同頁要求確認
+            setPendingItem(item);
+            setScanPhase("CONFIRM");
+          }
+        }, 1200);
+
+        return () => {
+          clearTimeout(t1);
+          if (window.__scan_t2) clearTimeout(window.__scan_t2);
+        };
+      }, [currentStep, scanNonce]);
+
+
+      // Step 3: 辨識中，2 秒後產生一個 Mock 商品並進入 Step 4
+      // useEffect(() => {
+      //   if (currentStep === 3) {
+      //     const timer = setTimeout(() => {
+      //       const item = getRandomMockItem();
+      //       setCurrentItem(item);
+      //       setCurrentStep(3);
+      //     }, 2000);
+      //     return () => clearTimeout(timer);
+      //   }
+      // }, [currentStep]);
+
+      // 將目前辨識到的商品加入購物車（如果已存在則數量 +1）
+      const addCurrentItemToCart = () => {
+        if (!currentItem) return;
+        setCart((prev) => {
+          const index = prev.findIndex((p) => p.id === currentItem.id);
+          if (index === -1) return [...prev, currentItem];
+          const newCart = [...prev];
+          newCart[index] = {
+            ...newCart[index],
+            quantity: newCart[index].quantity + currentItem.quantity,
+          };
+          return newCart;
+        });
+      };
+
+      // 計算總金額
+      const totalAmount = cart.reduce(
+        (sum, item) => sum + item.price * item.quantity,
+        0
+      );
+
+      // 讓使用者唸的句子：依購物車更貼近使用情境
+      const cartSentence = useMemo(() => {
+        if (!cart.length) return "我是 XXX，我買了一個 XX 和一個 XXX";
+        const parts = cart.slice(0, 3).map((it) => `${it.name} ${it.quantity} 個`);
+        const tail = cart.length > 3 ? "等" : "";
+        return `我是 XXX，我買了 ${parts.join("、")}${tail}`;
+      }, [cart]);
+
+      const revokeIfBlob = (url) => {
+        if (url && typeof url === "string" && url.startsWith("blob:")) {
+          try { URL.revokeObjectURL(url); } catch (e) { }
+        }
+      };
+
+      const stopTimer = () => {
+        if (timerRef.current) {
+          clearInterval(timerRef.current);
+          timerRef.current = null;
+        }
+      };
+
+      const stopAudioRecording = () => {
+        const mr = mediaRecorderRef.current;
+        if (mr && mr.state !== "inactive") {
+          try { mr.stop(); } catch (e) { }
+        }
+        setIsRecordingAudio(false);
+        stopTimer();
+      };
+
+      const resetEvidence = () => {
+        setCamErr("");
+        setMicErr("");
+        setIsSavingEvidence(false);
+
+        ignoreStopRef.current = true;
+        stopAudioRecording();
+
+        setRecordSec(0);
+        setEvidenceSnapshot(null);
+
+        setEvidenceAudioBlob(null);
+        revokeIfBlob(evidenceAudioUrl);
+        setEvidenceAudioUrl(null);
+
+        setTimeout(() => { ignoreStopRef.current = false; }, 0);
+      };
+
+      const takeEvidencePhoto = () => {
+        setCamErr("");
+        const video = evidenceVideoRef.current;
+        const canvas = evidenceCanvasRef.current;
+        if (!video || !canvas) return;
+
+        const w = video.videoWidth;
+        const h = video.videoHeight;
+        if (!w || !h) {
+          setCamErr("尚未取得相機畫面，請稍候相機顯示後再拍照。");
+          return;
+        }
+
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(video, 0, 0, w, h);
+
+        const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
+        setEvidenceSnapshot(dataUrl);
+      };
+
+      const startAudioRecording = async () => {
+        setMicErr("");
+        if (!window.MediaRecorder) {
+          setMicErr("此瀏覽器不支援錄音（MediaRecorder）。建議使用 Chrome。");
+          return;
+        }
+
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+          audioChunksRef.current = [];
+
+          let mr;
+          try {
+            mr = new MediaRecorder(stream, { mimeType: "audio/webm" });
+          } catch (e) {
+            mr = new MediaRecorder(stream);
+          }
+          mediaRecorderRef.current = mr;
+
+          mr.ondataavailable = (evt) => {
+            if (evt.data && evt.data.size > 0) audioChunksRef.current.push(evt.data);
+          };
+
+          mr.onstop = () => {
+            try { stream.getTracks().forEach((t) => t.stop()); } catch (e) { }
+            if (ignoreStopRef.current) return;
+
+            const blob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+            setEvidenceAudioBlob(blob);
+
+            revokeIfBlob(evidenceAudioUrl);
+            const url = URL.createObjectURL(blob);
+            setEvidenceAudioUrl(url);
+          };
+
+          mr.start();
+          setIsRecordingAudio(true);
+          setRecordSec(0);
+
+          stopTimer();
+          timerRef.current = setInterval(() => {
+            setRecordSec((s) => {
+              const next = s + 1;
+              // kiosk 友善：最多 8 秒自動停
+              if (next >= 8) stopAudioRecording();
+              return next;
+            });
+          }, 1000);
+        } catch (err) {
+          if (err && (err.name === "NotAllowedError" || err.name === "PermissionDeniedError")) {
+            setMicErr("麥克風權限被拒絕，請在網址列授權。");
+          } else {
+            setMicErr("無法啟動麥克風，請檢查權限或裝置。");
+          }
+        }
+      };
+
+      const submitEvidence = async () => {
+        if (!evidenceSnapshot || !evidenceAudioBlob || isSavingEvidence || isRecordingAudio) return;
+
+        setIsSavingEvidence(true);
+        try {
+          // 之後接後端：改成 FormData 上傳 photo/audio
+          await new Promise((r) => setTimeout(r, 1200));
+          setCurrentStep(11); // ✅ 送出後直接完成（評分頁）
+        } finally {
+          setIsSavingEvidence(false);
+        }
+      };
+
+      // Step 7: 驗證賒帳通關密碼
+      const handleAuthConfirm = () => {
+        if (authLocked) return;
+
+        const CORRECT_PASSWORD = "1234";
+        if (authPassword === CORRECT_PASSWORD) {
+          setAuthErrorMsg("");
+          setAuthErrorCount(0);
+          setAuthLocked(false);
+          setCurrentStep(8); // ✅ 進入拍照頁
+        } else {
+          const newCount = authErrorCount + 1;
+          setAuthErrorCount(newCount);
+          setAuthPassword("");
+          if (newCount >= 3) {
+            setAuthLocked(true);
+            setAuthErrorMsg(
+              "輸入錯誤已達 3 次，系統暫時鎖定，請改用其他支付方式或請店長協助。"
+            );
+          } else {
+            setAuthErrorMsg(`通關密碼錯誤，第 ${newCount} 次，請再試一次。`);
+          }
+        }
+      };
+
+      // Step 11: 送出評分與回饋後重置系統
+      const handleFinalSubmit = () => {
+        console.log("評分：", rating, "回饋：", feedback);
+        console.log("購物車內容：", cart);
+
+        resetEvidence();
+
+        setCurrentStep(1);
+        setCart([]);
+        setCurrentItem(null);
+        setPaymentMethod(null);
+        setAuthPassword("");
+        setAuthErrorMsg("");
+        setAuthErrorCount(0);
+        setAuthLocked(false);
+        setRating(0);
+        setFeedback("");
+      };
+
+      // ---- 各 Step UI ----
+      const renderStepContent = () => {
+        switch (currentStep) {
+          // Step 1: 歡迎頁
+          case 1:
+            return (
+              <div className="flex flex-col items-center justify-center h-full text-center space-y-8">
+                <div className="text-6xl mb-2">👋</div>
+                <h2 className="text-4xl font-bold text-slate-800">Welcome!</h2>
+                <p className="text-xl text-slate-600">
+                  歡迎來到部落誠實商店自助結帳系統
+                </p>
+                <div className="flex flex-col md:flex-row gap-6 mt-6">
+                  <button
+                    onClick={() => console.log("教學功能待開發")}
+                    className="px-10 py-5 rounded-2xl bg-slate-200 hover:bg-slate-300 text-xl font-semibold shadow-md transition-transform hover:scale-105 active:scale-95"
+                  >
+                    📚 教學（尚未開放）
+                  </button>
+                  <button
+                    onClick={() => setCurrentStep(2)}
+                    className="px-10 py-5 rounded-2xl bg-green-600 hover:bg-green-500 text-white text-2xl font-bold shadow-lg transition-transform hover:scale-105 active:scale-95"
+                  >
+                    🛒 開始結帳
+                  </button>
+                </div>
+              </div>
+            );
+
+          // Step 2: 結帳引導
+          case 2:
+            return (
+              <div className="flex flex-col md:flex-row gap-8 w-full h-full">
+                <div className="flex-1 flex flex-col justify-center space-y-6">
+                  <h2 className="text-3xl font-bold text-slate-800">
+                    請將物品拿到鏡頭前
+                  </h2>
+                  <p className="text-xl text-slate-600">
+                    依照螢幕上的指示動作，在尚未辨識完成前請勿離開。
+                  </p>
+                  <p className="text-lg text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+                    系統將自動啟動鏡頭並嘗試辨識您的商品，約需 3 秒鐘，請稍候。
+                  </p>
+                  <p className="text-sm text-slate-400">
+                    （此為模擬畫面，實作時可接入實際影像辨識與後端 API）
+                  </p>
+                </div>
+                <div className="flex-1 flex items-center justify-center">
+                  <div className="relative w-full max-w-xl aspect-video bg-black rounded-3xl shadow-2xl overflow-hidden border-4 border-slate-800">
+                    <div className="absolute top-4 left-4 text-xs font-mono text-green-300 bg-black/60 px-3 py-1 rounded-full">
+                      CAMERA 01 · FRONT
+                    </div>
+                    <div className="absolute top-4 right-4 flex items-center gap-2 bg-black/60 px-4 py-2 rounded-full">
+                      <div className="w-3 h-3 rounded-full bg-red-500 animate-blink" />
+                      <span className="text-xs text-white tracking-widest font-semibold">
+                        LIVE
+                      </span>
+                    </div>
+                    <div className="w-full h-full flex items-center justify-center">
+                      <div className="text-center text-slate-100">
+                        <div className="text-6xl mb-4">📷</div>
+                        <div className="text-xl">正在準備鏡頭與辨識系統...</div>
+                        <div className="mt-2 text-sm text-slate-300">
+                          約 3 秒後進入「辨識中」畫面
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+
+          // Step 3: 辨識過程
+          case 3: {
+            const title =
+              scanPhase === "CONFIRM"
+                ? "請確認商品"
+                : scanPhase === "AUTO_ADDED"
+                  ? "已加入商品"
+                  : "辨識中...";
+
+            const subtitle =
+              scanPhase === "CONFIRM"
+                ? "系統不太確定，請您看一下是否正確。"
+                : scanPhase === "AUTO_ADDED"
+                  ? "請繼續放下一樣商品到鏡頭前。"
+                  : "請把商品放在鏡頭中央。";
+
+            return (
+              <div className="w-full h-full flex flex-col">
+                <div className="flex flex-col md:flex-row gap-8 w-full flex-1 min-h-0">
+                  <div className="flex-1 flex flex-col justify-center space-y-4">
+                    <h2 className="text-3xl font-bold text-slate-800">{title}</h2>
+                    <p className="text-xl text-slate-600">{subtitle}</p>
+                    <p className="text-sm text-slate-500">
+                      若不是這個商品，按「不是，重掃」即可。
+                    </p>
+                  </div>
+
+                  <div className="flex-1 flex items-center justify-center">
+                    <div className="relative">
+                      <CameraView label="SCANNING CAM" status={scanPhase === "SCANNING" ? "SCANNING" : "LIVE"}>
+                        {/* 這些是提示用，不需要點擊，所以放 children 沒關係 */}
+                        {scanPhase === "SCANNING" && (
+                          <div className="flex items-center justify-center h-full">
+                            <div className="bg-black/60 text-slate-100 px-6 py-4 rounded-2xl text-center">
+                              <div className="text-2xl mb-2">🔍 辨識中...</div>
+                              <div className="flex items-center justify-center gap-2 mb-1">
+                                <span className="w-3 h-3 rounded-full bg-slate-200 animate-bounce" />
+                                <span className="w-3 h-3 rounded-full bg-slate-200 animate-bounce [animation-delay:0.15s]" />
+                                <span className="w-3 h-3 rounded-full bg-slate-200 animate-bounce [animation-delay:0.3s]" />
+                              </div>
+                              <div className="text-xs text-slate-300">（模擬）約 1 秒後顯示結果</div>
+                            </div>
+                          </div>
+                        )}
+
+                        {scanPhase === "AUTO_ADDED" && lastAddedItem && (
+                          <div className="flex items-center justify-center h-full">
+                            <div className="bg-emerald-600/90 text-white px-6 py-5 rounded-2xl text-center shadow-xl">
+                              <div className="text-3xl mb-2">✅ 已加入</div>
+                              <div className="text-xl font-semibold">
+                                {lastAddedItem.image} {lastAddedItem.name}　${lastAddedItem.price}
+                              </div>
+                              <div className="text-sm opacity-90 mt-1">請放下一樣商品到鏡頭前</div>
+                            </div>
+                          </div>
+                        )}
+                      </CameraView>
+
+                      {/* 低信心確認卡：放在 CameraView 外面，才能點擊按鈕 */}
+                      {scanPhase === "CONFIRM" && pendingItem && (
+                        <div className="absolute inset-0 flex items-end justify-center pb-6 px-4">
+                          <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-200 p-6">
+                            <div className="flex items-center gap-4">
+                              <div className="text-5xl">{pendingItem.image}</div>
+                              <div className="flex-1">
+                                <div className="text-xl font-bold text-slate-800">{pendingItem.name}</div>
+                                <div className="text-slate-600 mt-1">金額：${pendingItem.price}</div>
+                                <div className="text-xs text-slate-400 mt-1">
+                                  信心度：{Math.round((pendingItem.confidence || 0) * 100)}%
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-5">
+                              <button
+                                onClick={handleConfirmPending}
+                                className="w-full px-5 py-4 rounded-2xl bg-emerald-600 text-white font-bold text-lg hover:bg-emerald-500 shadow-lg transition-transform hover:scale-105 active:scale-95"
+                              >
+                                ✅ 是，加入清單
+                              </button>
+                              <button
+                                onClick={handleRejectPending}
+                                className="w-full px-5 py-4 rounded-2xl bg-slate-200 text-slate-800 font-semibold text-lg hover:bg-slate-300 shadow-md transition-transform hover:scale-105 active:scale-95"
+                              >
+                                ↩️ 不是，重掃
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 底部摘要：左「總覽」／中「上一個加入」／右「查看清單」 */}
+                <div className="mt-5 bg-white rounded-2xl border border-slate-200 px-5 py-4">
+                  <div className="flex items-center gap-4">
+                    {/* 左：目前總覽 */}
+                    <div className="shrink-0 text-slate-700">
+                      <div className="text-sm text-slate-500">目前已加入</div>
+                      <div className="text-xl font-bold">
+                        {cart.length} 項　<span className="text-slate-400">/</span> ${totalAmount}
+                      </div>
+                    </div>
+
+                    {/* 中：上一個加入的物品 */}
+                    <div className="flex-1 min-w-0 flex justify-center">
+                      {lastAddedItem ? (
+                        <div className="w-full max-w-xl bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 flex items-center gap-3">
+                          <div className="text-3xl shrink-0">{lastAddedItem.image}</div>
+                          <div className="min-w-0">
+                            <div className="text-xs text-slate-500">上一個加入</div>
+                            <div className="text-lg font-bold text-slate-800 truncate">
+                              {lastAddedItem.name} x{lastAddedItem.quantity}
+                            </div>
+
+                          </div>
+                          <div className="ml-auto text-lg font-bold text-emerald-700 shrink-0">
+                            ${lastAddedItem.price}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-slate-400 text-sm">尚未加入商品</div>
+                      )}
+                    </div>
+
+                    {/* 右：查看清單 */}
+                    <button
+                      onClick={() => setCurrentStep(5)}
+                      className="shrink-0 px-6 py-4 rounded-2xl bg-sky-600 text-white font-bold text-lg hover:bg-sky-500 shadow-lg transition-transform hover:scale-105 active:scale-95"
+                    >
+                      🛒 查看清單
+                    </button>
+                  </div>
+                </div>
+
+              </div>
+            );
+          }
+
+          // case 3:
+          //   return (
+          //     <div className="flex flex-col md:flex-row gap-8 w-full h-full">
+          //       <div className="flex-1 flex flex-col justify-center space-y-6">
+          //         <h2 className="text-3xl font-bold text-slate-800">辨識中...</h2>
+          //         <p className="text-xl text-slate-600">
+          //           系統正在辨識您拿在鏡頭前的商品，請保持物品在畫面中央。
+          //         </p>
+          //         <ul className="list-disc list-inside text-slate-600 space-y-1">
+          //           <li>請勿遮擋商品關鍵標籤或包裝。</li>
+          //           <li>若有多樣商品，請一次放一樣即可。</li>
+          //           <li>辨識完成後會顯示商品資訊供您確認是否正確。</li>
+          //         </ul>
+          //         <p className="text-sm text-slate-500">
+          //           若相機未啟動，請確認使用 HTTPS 或 localhost，並允許相機權限。
+          //         </p>
+          //       </div>
+          //       <div className="flex-1 flex items-center justify-center">
+          //         <CameraView label="SCANNING CAM" status="SCANNING">
+          //           <div className="flex items-center justify-center h-full">
+          //             <div className="bg-black/60 text-slate-100 px-6 py-4 rounded-2xl text-center">
+          //               <div className="text-2xl mb-2">🔍 辨識中...</div>
+          //               <div className="flex items-center justify-center gap-2 mb-1">
+          //                 <span className="w-3 h-3 rounded-full bg-slate-200 animate-bounce" />
+          //                 <span className="w-3 h-3 rounded-full bg-slate-200 animate-bounce [animation-delay:0.15s]" />
+          //                 <span className="w-3 h-3 rounded-full bg-slate-200 animate-bounce [animation-delay:0.3s]" />
+          //               </div>
+          //               <div className="text-xs text-slate-300">約 2 秒後顯示辨識結果（模擬）</div>
+          //             </div>
+          //           </div>
+          //         </CameraView>
+          //       </div>
+          //     </div>
+          //   );
+
+          // // Step 4: 單一物品確認(之後可刪除)
+          // case 4:
+          //   return (
+          //     <div className="flex flex-col w-full h-full">
+          //       <h2 className="text-3xl font-bold text-slate-800 mb-4 text-center">
+          //         請確認這個商品是否正確
+          //       </h2>
+          //       <div className="flex-1 flex flex-col md:flex-row gap-8">
+          //         <div className="flex-1 flex items-center justify-center">
+          //           {!currentItem ? (
+          //             <div className="text-slate-500">尚未取得商品資訊</div>
+          //           ) : (
+          //             <div className="bg-white rounded-3xl shadow-xl p-8 flex flex-col items-center w-full max-w-md border border-slate-100">
+          //               <div className="text-7xl mb-4">{currentItem.image}</div>
+          //               <div className="text-2xl font-bold text-slate-800 mb-2">
+          //                 {currentItem.name}
+          //               </div>
+          //               <div className="text-lg text-slate-600 mb-1">
+          //                 數量：{currentItem.quantity}
+          //               </div>
+          //               <div className="text-xl font-semibold text-green-700 mb-4">
+          //                 金額：${currentItem.price}
+          //               </div>
+          //               <div className="text-sm text-slate-400">
+          //                 若商品不正確，請選擇重新辨識。
+          //               </div>
+          //             </div>
+          //           )}
+          //         </div>
+          //         <div className="flex-1 flex flex-col justify-center gap-4">
+          //           <button
+          //             onClick={() => setCurrentStep(3)}
+          //             className="w-full px-6 py-4 rounded-2xl bg-red-100 text-red-700 font-semibold text-lg hover:bg-red-200 shadow-md transition-transform hover:scale-105 active:scale-95"
+          //           >
+          //             ❌ 錯誤，重新辨識
+          //           </button>
+          //           <button
+          //             onClick={() => {
+          //               addCurrentItemToCart();
+          //               setCurrentStep(3);
+          //             }}
+          //             className="w-full px-6 py-4 rounded-2xl bg-sky-100 text-sky-800 font-semibold text-lg hover:bg-sky-200 shadow-md transition-transform hover:scale-105 active:scale-95"
+          //           >
+          //             ➕ 正確，辨識下一個物品
+          //           </button>
+          //           <button
+          //             onClick={() => {
+          //               addCurrentItemToCart();
+          //               setCurrentStep(5);
+          //             }}
+          //             className="w-full px-6 py-4 rounded-2xl bg-green-600 text-white font-bold text-xl hover:bg-green-500 shadow-lg transition-transform hover:scale-105 active:scale-95"
+          //           >
+          //             🛒 正確，進入購物車
+          //           </button>
+          //           <p className="text-sm text-slate-500 mt-2">
+          //             已辨識的商品會加入購物車中，您可以重複辨識多樣商品再一次確認。
+          //           </p>
+          //         </div>
+          //       </div>
+          //     </div>
+          //   );
+
+          // Step 5: 購物車
+          case 5:
+            return (
+              <div className="flex flex-col w-full h-full">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-3xl font-bold text-slate-800">購物車清單</h2>
+                  {cart.length > 0 && (
+                    <button
+                      onClick={() => setCurrentStep(3)}
+                      className="px-4 py-2 rounded-xl bg-sky-100 text-sky-800 text-sm font-semibold hover:bg-sky-200"
+                    >
+                      ➕ 繼續辨識商品
+                    </button>
+                  )}
+                </div>
+                <div className="flex-1 bg-white rounded-3xl shadow-inner border border-slate-100 p-6 overflow-auto">
+                  {cart.length === 0 ? (
+                    <div className="h-full flex flex-col items-center justify-center text-slate-500 space-y-3">
+                      <div className="text-5xl">🛒</div>
+                      <div className="text-lg">目前購物車是空的，請先辨識商品。</div>
+                      <button
+                        onClick={() => setCurrentStep(3)}
+                        className="mt-2 px-6 py-3 rounded-2xl bg-green-600 text-white font-semibold hover:bg-green-500 shadow-md"
+                      >
+                        開始辨識商品
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {cart.map((item) => (
+                        <div
+                          key={item.id}
+                          className="flex items-center justify-between bg-slate-50 rounded-2xl px-4 py-4 border border-slate-100"
+                        >
+                          {/* 左：品名 */}
+                          <div className="flex items-center gap-4 min-w-0">
+                            <div className="text-3xl shrink-0">{item.image}</div>
+                            <div className="min-w-0">
+                              <div className="text-lg font-semibold text-slate-800 truncate">
+                                {item.name}
+                              </div>
+                              <div className="text-xs text-slate-500">單價：${item.price}</div>
+                            </div>
+                          </div>
+
+                          {/* 中：數量加減 */}
+                          <div className="flex items-center gap-3">
+                            <button
+                              type="button"
+                              onClick={() => decreaseQty(item.id)}
+                              className="w-12 h-12 rounded-2xl bg-white border border-slate-200 text-slate-700 text-2xl font-bold shadow-sm hover:bg-slate-100 active:scale-95 transition"
+                              aria-label="減少數量"
+                            >
+                              −
+                            </button>
+
+                            <div className="w-16 text-center">
+                              <div className="text-xs text-slate-500">數量</div>
+                              <div className="text-2xl font-bold text-slate-800">{item.quantity}</div>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => increaseQty(item.id)}
+                              className="w-12 h-12 rounded-2xl bg-white border border-slate-200 text-slate-700 text-2xl font-bold shadow-sm hover:bg-slate-100 active:scale-95 transition"
+                              aria-label="增加數量"
+                            >
+                              +
+                            </button>
+                          </div>
+
+                          {/* 右：小計 */}
+                          <div className="text-right w-28">
+                            <div className="text-lg font-bold text-green-700">
+                              ${item.price * item.quantity}
+                            </div>
+                            <div className="text-xs text-slate-400">小計</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="mt-4 flex items-center justify-between">
+                  <div className="text-xl font-semibold text-slate-800">
+                    總金額：<span className="text-2xl text-green-700">${totalAmount}</span>
+                  </div>
+                  <button
+                    disabled={cart.length === 0}
+                    onClick={() => {
+                      setPaymentMethod(null);
+                      setCurrentStep(6);
+                    }}
+                    className={`px-8 py-4 rounded-2xl text-xl font-bold shadow-lg transition-transform ${cart.length === 0
+                      ? "bg-slate-300 text-slate-500 cursor-not-allowed"
+                      : "bg-green-600 text-white hover:bg-green-500 hover:scale-105 active:scale-95"
+                      }`}
+                  >
+                    💳 結帳
+                  </button>
+                </div>
+              </div>
+            );
+
+          // Step 6: 支付方式選擇
+          case 6:
+            return (
+              <div className="flex flex-col items-center justify-center h-full space-y-8 text-center">
+                <h2 className="text-3xl font-bold text-slate-800">請選擇支付方式</h2>
+                <p className="text-lg text-slate-600">
+                  本次消費金額：
+                  <span className="text-2xl text-green-700 font-semibold">${totalAmount}</span>
+                </p>
+                <div className="flex flex-col md:flex-row gap-6 mt-4">
+                  <button
+                    onClick={() => {
+                      setPaymentMethod("Linepay");
+                      alert("模擬：已轉 Linepay Money 給飛鼠");
+                      setCurrentStep(11); // ✅ 不影響其他功能：LinePay 直接完成
+                    }}
+                    className="px-10 py-5 rounded-2xl bg-emerald-600 text-white text-xl font-bold shadow-lg hover:bg-emerald-500 transition-transform hover:scale-105 active:scale-95"
+                  >
+                    🟢 Line Pay 付款
+                  </button>
+                  <button
+                    onClick={() => {
+                      setPaymentMethod("Credit");
+                      setCurrentStep(7);
+                    }}
+                    className="px-10 py-5 rounded-2xl bg-slate-800 text-white text-xl font-bold shadow-lg hover:bg-slate-700 transition-transform hover:scale-105 active:scale-95"
+                  >
+                    📘 賒帳（限已註冊族人）
+                  </button>
+                </div>
+                <button
+                  onClick={() => setCurrentStep(5)}
+                  className="mt-4 text-slate-500 underline text-sm"
+                >
+                  ⬅ 返回購物車
+                </button>
+              </div>
+            );
+
+          // Step 7: 賒帳身份驗證
+          case 7:
+            return (
+              <div className="flex flex-col items-center justify-center h-full space-y-6">
+                <h2 className="text-3xl font-bold text-slate-800 mb-2">賒帳身份驗證</h2>
+                <p className="text-lg text-slate-600 max-w-xl text-center">
+                  請輸入通關密碼完成身份確認。
+                  <br />
+                  <span className="text-sm text-slate-500">
+                    （可搭配族語提示或口訣，例如：某句族語密語）
+                  </span>
+                </p>
+                <div className="bg-white rounded-3xl shadow-xl border border-slate-100 px-8 py-6 w-full max-w-md">
+                  <label className="block text-left text-slate-700 mb-2 font-semibold">
+                    通關密碼
+                  </label>
+                  <input
+                    type="password"
+                    className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                    placeholder="請輸入 4 位數密碼"
+                    value={authPassword}
+                    onChange={(e) => setAuthPassword(e.target.value)}
+                    disabled={authLocked}
+                  />
+                  {authErrorMsg && (
+                    <div className="mt-2 text-sm text-red-600">{authErrorMsg}</div>
+                  )}
+                  <div className="flex flex-col md:flex-row gap-4 mt-6">
+                    <button
+                      type="button"
+                      onClick={() => setAuthPassword("1234")}
+                      disabled={authLocked}
+                      className={`flex-1 px-4 py-3 rounded-2xl text-lg font-semibold shadow-md ${authLocked
+                        ? "bg-slate-200 text-slate-400 cursor-not-allowed"
+                        : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                        }`}
+                    >
+                      🔁 回填示範密碼
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleAuthConfirm}
+                      disabled={authLocked}
+                      className={`flex-1 px-4 py-3 rounded-2xl text-lg font-bold shadow-md ${authLocked
+                        ? "bg-slate-300 text-slate-500 cursor-not-allowed"
+                        : "bg-green-600 text-white hover:bg-green-500"
+                        }`}
+                    >
+                      ✅ 確認
+                    </button>
+                  </div>
+                  <button
+                    onClick={() => setCurrentStep(6)}
+                    className="mt-4 text-slate-500 underline text-sm"
+                  >
+                    ⬅ 返回支付方式選擇
+                  </button>
+                </div>
+              </div>
+            );
+
+          // Step 8: 拍照頁（先拍照）
+          case 8:
+            return (
+              <div className="flex flex-col md:flex-row w-full h-full gap-8">
+                <div className="flex-1 flex flex-col justify-center space-y-4">
+                  <h2 className="text-3xl font-bold text-slate-800">步驟 1／2：拍照存證</h2>
+                  <p className="text-lg text-slate-600">
+                    請把「人＋商品」一起拍進畫面（臉要清楚、商品拿在胸前）。
+                  </p>
+
+                  {camErr && (
+                    <div className="bg-rose-50 border border-rose-200 text-rose-700 rounded-2xl px-4 py-3 text-sm">
+                      相機：{camErr}
+                    </div>
+                  )}
+
+                  <div className="mt-2 flex flex-col sm:flex-row gap-4">
+                    {evidenceSnapshot ? (
+                      <button
+                        onClick={() => setEvidenceSnapshot(null)}
+                        disabled={isSavingEvidence || isRecordingAudio}
+                        className="flex-1 px-6 py-4 rounded-2xl bg-slate-100 text-slate-700 text-lg font-semibold shadow-md hover:bg-slate-200 disabled:bg-slate-200 disabled:text-slate-400"
+                      >
+                        🔄 重拍
+                      </button>
+                    ) : (
+                      <button
+                        onClick={takeEvidencePhoto}
+                        disabled={!camReady || isSavingEvidence || isRecordingAudio}
+                        className={`flex-1 px-6 py-4 rounded-2xl text-lg font-bold shadow-lg transition-transform ${!camReady || isSavingEvidence || isRecordingAudio
+                          ? "bg-slate-300 text-slate-600 cursor-not-allowed"
+                          : "bg-indigo-600 text-white hover:bg-indigo-500 hover:scale-105 active:scale-95"
+                          }`}
+                      >
+                        📸 拍照
+                      </button>
+                    )}
+
+                    <button
+                      onClick={() => {
+                        resetEvidence();
+                        setCurrentStep(6);
+                      }}
+                      disabled={isSavingEvidence || isRecordingAudio}
+                      className="flex-1 px-6 py-4 rounded-2xl bg-slate-100 text-slate-700 text-lg font-semibold shadow-md hover:bg-slate-200 disabled:bg-slate-200 disabled:text-slate-400"
+                    >
+                      ⬅ 返回支付方式
+                    </button>
+                  </div>
+
+                  <button
+                    onClick={() => setCurrentStep(9)}
+                    disabled={!evidenceSnapshot || isSavingEvidence || isRecordingAudio}
+                    className={`w-full px-6 py-4 rounded-2xl text-xl font-bold shadow-lg transition-transform ${!evidenceSnapshot || isSavingEvidence || isRecordingAudio
+                      ? "bg-slate-300 text-slate-600 cursor-not-allowed"
+                      : "bg-slate-900 text-white hover:bg-slate-800 hover:scale-105 active:scale-95"
+                      }`}
+                  >
+                    下一步：錄音 🎙
+                  </button>
+
+                  <p className="text-xs text-slate-500">
+                    隱私說明：存證僅用於對帳與核對；店家不會任意對外公開。
+                  </p>
+                </div>
+
+                <div className="flex-1 flex items-center justify-center">
+                  <div className="relative w-full max-w-xl">
+                    <div className="relative w-full aspect-video bg-black rounded-3xl shadow-2xl overflow-hidden border-4 border-slate-800">
+                      {evidenceSnapshot ? (
+                        <img
+                          src={evidenceSnapshot}
+                          alt="Evidence"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <CameraView
+                          label="EVIDENCE CAM"
+                          status="STANDBY"
+                          videoRef={evidenceVideoRef}
+                          onReadyChange={setCamReady}
+                          onErrorChange={setCamErr}
+                        >
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <div className="bg-black/50 text-slate-100 px-5 py-3 rounded-2xl text-sm text-center">
+                              <div className="font-semibold mb-1">拍照小提示</div>
+                              <div>請把臉和商品放在畫面中央</div>
+                            </div>
+                          </div>
+                        </CameraView>
+                      )}
+
+                      <div className="absolute inset-x-0 bottom-6 flex justify-center">
+                        <div className="bg-black/60 text-slate-100 px-6 py-3 rounded-2xl text-sm">
+                          {evidenceSnapshot ? "✅ 已拍照，請按「下一步：錄音」" : "相機就緒後按「拍照」"}
+                        </div>
+                      </div>
+                    </div>
+
+                    <canvas ref={evidenceCanvasRef} className="hidden"></canvas>
+                  </div>
+                </div>
+              </div>
+            );
+
+          // Step 9: 錄音頁（再錄音）
+          case 9:
+            return (
+              <div className="flex flex-col md:flex-row w-full h-full gap-8">
+                <div className="flex-1 flex flex-col justify-center space-y-4">
+                  <h2 className="text-3xl font-bold text-slate-800">步驟 2／2：錄音存證</h2>
+
+                  {!evidenceSnapshot && (
+                    <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-2xl px-4 py-3 text-sm">
+                      你尚未拍照，請先回上一步完成拍照。
+                    </div>
+                  )}
+
+                  <p className="text-lg text-slate-600">
+                    請清楚唸出以下句子（系統 8 秒會自動停止錄音）：
+                  </p>
+
+                  <div className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 text-amber-800 text-base">
+                    「{cartSentence}」
+                  </div>
+
+                  {micErr && (
+                    <div className="bg-rose-50 border border-rose-200 text-rose-700 rounded-2xl px-4 py-3 text-sm">
+                      麥克風：{micErr}
+                    </div>
+                  )}
+
+                  <div className="mt-2 flex flex-col sm:flex-row gap-4">
+                    {isRecordingAudio ? (
+                      <button
+                        onClick={stopAudioRecording}
+                        disabled={isSavingEvidence}
+                        className="flex-1 px-6 py-4 rounded-2xl bg-red-600 text-white text-lg font-bold shadow-lg hover:bg-red-500 transition-transform hover:scale-105 active:scale-95"
+                      >
+                        ⏹ 停止錄音（{recordSec}s）
+                      </button>
+                    ) : evidenceAudioBlob ? (
+                      <button
+                        onClick={() => {
+                          setEvidenceAudioBlob(null);
+                          revokeIfBlob(evidenceAudioUrl);
+                          setEvidenceAudioUrl(null);
+                        }}
+                        disabled={isSavingEvidence}
+                        className="flex-1 px-6 py-4 rounded-2xl bg-slate-100 text-slate-700 text-lg font-semibold shadow-md hover:bg-slate-200 disabled:bg-slate-200 disabled:text-slate-400"
+                      >
+                        🔄 重錄音
+                      </button>
+                    ) : (
+                      <button
+                        onClick={startAudioRecording}
+                        disabled={isSavingEvidence || !evidenceSnapshot}
+                        className={`flex-1 px-6 py-4 rounded-2xl text-lg font-bold shadow-lg transition-transform ${isSavingEvidence || !evidenceSnapshot
+                          ? "bg-slate-300 text-slate-600 cursor-not-allowed"
+                          : "bg-emerald-600 text-white hover:bg-emerald-500 hover:scale-105 active:scale-95"
+                          }`}
+                      >
+                        🎙 開始錄音
+                      </button>
+                    )}
+
+                    <button
+                      onClick={() => setCurrentStep(8)}
+                      disabled={isSavingEvidence || isRecordingAudio}
+                      className="flex-1 px-6 py-4 rounded-2xl bg-slate-100 text-slate-700 text-lg font-semibold shadow-md hover:bg-slate-200 disabled:bg-slate-200 disabled:text-slate-400"
+                    >
+                      ⬅ 回上一步：拍照
+                    </button>
+                  </div>
+
+                  {evidenceAudioUrl && (
+                    <div className="bg-white border border-slate-200 rounded-2xl px-4 py-3">
+                      <div className="text-sm font-semibold text-slate-700 mb-2">錄音預覽</div>
+                      <audio controls src={evidenceAudioUrl} className="w-full" />
+                    </div>
+                  )}
+
+                  <button
+                    onClick={() => setCurrentStep(10)}
+                    disabled={!evidenceSnapshot || !evidenceAudioBlob || isSavingEvidence || isRecordingAudio}
+                    className={`w-full px-6 py-4 rounded-2xl text-xl font-bold shadow-lg transition-transform ${!evidenceSnapshot || !evidenceAudioBlob || isSavingEvidence || isRecordingAudio
+                      ? "bg-slate-300 text-slate-600 cursor-not-allowed"
+                      : "bg-slate-900 text-white hover:bg-slate-800 hover:scale-105 active:scale-95"
+                      }`}
+                  >
+                    下一步：確認內容 ✅
+                  </button>
+                </div>
+
+                <div className="flex-1 flex items-center justify-center">
+                  <div className="w-full max-w-xl">
+                    <div className="relative w-full aspect-video bg-black rounded-3xl shadow-2xl overflow-hidden border-4 border-slate-800">
+                      {evidenceSnapshot ? (
+                        <img
+                          src={evidenceSnapshot}
+                          alt="Evidence Snapshot"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-slate-100">
+                          尚未拍照
+                        </div>
+                      )}
+                      <div className="absolute inset-x-0 bottom-6 flex justify-center">
+                        <div className="bg-black/60 text-slate-100 px-6 py-3 rounded-2xl text-sm">
+                          {isRecordingAudio ? `錄音中…（${recordSec}s）` : "請確認照片清楚，再完成錄音"}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+
+          // Step 10: 確認頁（照片＋音檔一起確認，按送出）
+          case 10:
+            return (
+              <div className="flex flex-col w-full h-full items-center justify-center gap-6 px-4">
+                <h2 className="text-3xl font-bold text-slate-800">確認存證內容</h2>
+                <p className="text-lg text-slate-600 text-center max-w-xl">
+                  請確認照片清楚、錄音聽得見。確認後送出完成結帳。
+                </p>
+
+                <div className="w-full max-w-xl space-y-4">
+                  <div className="relative w-full aspect-video bg-black rounded-3xl shadow-2xl overflow-hidden border-4 border-slate-800">
+                    {evidenceSnapshot ? (
+                      <img
+                        src={evidenceSnapshot}
+                        alt="Evidence Snapshot"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-slate-100">
+                        無照片
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="bg-white border border-slate-200 rounded-2xl px-4 py-3 w-full">
+                    <div className="text-sm font-semibold text-slate-700 mb-2">錄音預覽</div>
+                    {evidenceAudioUrl ? (
+                      <audio controls src={evidenceAudioUrl} className="w-full" />
+                    ) : (
+                      <div className="text-sm text-slate-500">無錄音</div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex flex-col md:flex-row gap-4 w-full max-w-xl">
+                  <button
+                    onClick={() => {
+                      resetEvidence();
+                      setCurrentStep(8);
+                    }}
+                    disabled={isSavingEvidence}
+                    className="flex-1 px-6 py-4 rounded-2xl bg-slate-100 text-slate-800 text-lg font-semibold shadow-md hover:bg-slate-200"
+                  >
+                    🔁 重新做一次
+                  </button>
+
+                  <button
+                    onClick={submitEvidence}
+                    disabled={!evidenceSnapshot || !evidenceAudioBlob || isSavingEvidence}
+                    className={`flex-1 px-6 py-4 rounded-2xl text-xl font-bold shadow-lg transition-transform ${!evidenceSnapshot || !evidenceAudioBlob || isSavingEvidence
+                      ? "bg-slate-300 text-slate-600 cursor-not-allowed"
+                      : "bg-green-600 text-white hover:bg-green-500 hover:scale-105 active:scale-95"
+                      }`}
+                  >
+                    {isSavingEvidence ? "存檔中..." : "📤 送出存證並完成"}
+                  </button>
+                </div>
+              </div>
+            );
+
+          // Step 11: 結束與評分（你原本 Step 10 原封不動搬來）
+          case 11:
+            return (
+              <div className="flex flex-col items-center justify-center h-full space-y-6 text-center">
+                <div className="text-6xl mb-2">🎉</div>
+                <h2 className="text-3xl font-bold text-green-700">Thank you!</h2>
+                <p className="text-lg text-slate-600 max-w-xl">
+                  感謝您的使用，商家會再確認存貨與消費內容。如有問題，店家會主動與您聯繫。
+                </p>
+                <div className="bg-white rounded-3xl shadow-xl border border-slate-100 px-8 py-6 w-full max-w-2xl mt-4 text-left">
+                  <h3 className="text-xl font-semibold text-slate-800 mb-2">
+                    今日的自助結帳體驗如何？
+                  </h3>
+                  <div className="flex items-center gap-2 mb-4">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button
+                        key={star}
+                        type="button"
+                        onClick={() => setRating(star)}
+                        className={`text-3xl ${rating >= star ? "text-yellow-400" : "text-slate-300"
+                          }`}
+                      >
+                        ★
+                      </button>
+                    ))}
+                    <span className="ml-2 text-sm text-slate-500">
+                      {rating > 0 ? `已給予 ${rating} 分` : "請點選星星評分"}
+                    </span>
+                  </div>
+                  <label className="block text-slate-700 mb-2 font-semibold">
+                    想說的話（選填）
+                  </label>
+                  <textarea
+                    rows={4}
+                    className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                    placeholder="例如：哪裡使用順、哪裡可以改進，或想跟店長說的話。"
+                    value={feedback}
+                    onChange={(e) => setFeedback(e.target.value)}
+                  />
+                  <button
+                    onClick={handleFinalSubmit}
+                    className="mt-4 w-full px-6 py-4 rounded-2xl bg-green-600 text-white text-xl font-bold shadow-lg hover:bg-green-500 transition-transform hover:scale-105 active:scale-95"
+                  >
+                    ✅ 送出並回到首頁
+                  </button>
+                </div>
+              </div>
+            );
+
+          default:
+            return null;
+        }
+      };
+
+      return (
+        <div className="min-h-screen flex flex-col">
+          {/* Header */}
+          <header className="bg-green-700 text-white px-6 py-4 shadow-lg flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <span className="text-3xl">🌲</span>
+              <div>
+                <h1 className="text-2xl font-bold tracking-wide">部落誠實商店</h1>
+                <p className="text-xs text-green-100">Self Checkout Kiosk Prototype</p>
+              </div>
+            </div>
+            <div className="flex flex-col items-end text-sm">
+              <span className="opacity-80">Step {currentStep} / 11</span>
+              {cart.length > 0 && (
+                <span className="mt-1 text-xs bg-green-900/40 px-3 py-1 rounded-full">
+                  🛒 購物車 {cart.length} 項 · ${totalAmount}
+                </span>
+              )}
+            </div>
+          </header>
+
+          {/* Main Content */}
+          <main className="flex-1 flex items-center justify-center px-4 py-6">
+            <div className="w-full max-w-6xl h-[70vh] md:h-[75vh] bg-slate-50 rounded-3xl shadow-2xl border border-slate-200 p-6 md:p-8">
+              {renderStepContent()}
+            </div>
+          </main>
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById("root"));
+    root.render(<CheckoutApp />);
+  </script>
+</body>
+
+</html>
