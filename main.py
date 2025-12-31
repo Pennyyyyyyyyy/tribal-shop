@@ -55,19 +55,22 @@ app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 async def submit_checkout(
     image: UploadFile = File(...),
     audio: UploadFile = File(...),
-    video: UploadFile = File(...),
+    video: UploadFile | None = File(None),
     user_id: str = Form("user_01")
 ):
     file_id = str(uuid.uuid4())
     img_path = f"{UPLOAD_DIR}/images/{file_id}_{image.filename}"
     aud_path = f"{UPLOAD_DIR}/audio/{file_id}_{audio.filename}"
-    vid_path = f"{UPLOAD_DIR}/videos/{file_id}_{video.filename}"
+    vid_path = None
 
     with open(img_path, "wb") as f: shutil.copyfileobj(image.file, f)
     with open(aud_path, "wb") as f: shutil.copyfileobj(audio.file, f)
-    with open(vid_path, "wb") as f: shutil.copyfileobj(video.file, f)
+    if video is not None:
+        vid_path = f"{UPLOAD_DIR}/videos/{file_id}_{video.filename}"
+        with open(vid_path, "wb") as f: shutil.copyfileobj(video.file, f)
 
-    result = model.transcribe(aud_path)
+    # 指定中文語系，避免亂碼或英文誤判
+    result = model.transcribe(aud_path, language="zh")
     text = result["text"]
 
     conn = sqlite3.connect(DB_PATH)
