@@ -273,7 +273,6 @@
 
       const [evidenceAudioUrl, setEvidenceAudioUrl] = useState(null);
       const [evidenceAudioBlob, setEvidenceAudioBlob] = useState(null);
-      const [evidenceAudioName, setEvidenceAudioName] = useState("evidence.webm");
 
       const [isSavingEvidence, setIsSavingEvidence] = useState(false);
 
@@ -281,25 +280,6 @@
       const audioChunksRef = useRef([]);
       const timerRef = useRef(null);
       const ignoreStopRef = useRef(false);
-      
-      const pickAudioMimeType = () => {
-        const candidates = [
-          "audio/webm;codecs=opus",
-          "audio/webm",
-          "audio/ogg;codecs=opus",
-          "audio/mp4",
-        ];
-        return candidates.find((c) => {
-          try { return MediaRecorder.isTypeSupported(c); } catch (_) { return false; }
-        }) || null;
-      };
-
-      const audioFileNameFromMime = (mime) => {
-        if (!mime) return "evidence.webm";
-        if (mime.includes("mp4")) return "evidence.m4a";
-        if (mime.includes("ogg")) return "evidence.ogg";
-        return "evidence.webm";
-      };
 
       // 評分＆回饋
       const [rating, setRating] = useState(0);
@@ -428,7 +408,6 @@
         setEvidenceAudioBlob(null);
         revokeIfBlob(evidenceAudioUrl);
         setEvidenceAudioUrl(null);
-        setEvidenceAudioName("evidence.webm");
 
         setTimeout(() => { ignoreStopRef.current = false; }, 0);
       };
@@ -466,11 +445,9 @@
           const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
           audioChunksRef.current = [];
 
-          const mimeType = pickAudioMimeType();
-
           let mr;
           try {
-            mr = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+            mr = new MediaRecorder(stream, { mimeType: "audio/webm" });
           } catch (e) {
             mr = new MediaRecorder(stream);
           }
@@ -484,11 +461,8 @@
             try { stream.getTracks().forEach((t) => t.stop()); } catch (e) { }
             if (ignoreStopRef.current) return;
 
-            const blob = new Blob(audioChunksRef.current, { type: mimeType || "audio/webm" });
+            const blob = new Blob(audioChunksRef.current, { type: "audio/webm" });
             setEvidenceAudioBlob(blob);
-
-            const fname = audioFileNameFromMime(mimeType);
-            setEvidenceAudioName(fname);
 
             revokeIfBlob(evidenceAudioUrl);
             const url = URL.createObjectURL(blob);
@@ -522,39 +496,9 @@
 
         setIsSavingEvidence(true);
         try {
-          // 準備 FormData 上傳到後端
-          const formData = new FormData();
-          
-          // 將 base64 照片轉成 Blob
-          const photoBlob = await fetch(evidenceSnapshot).then(r => r.blob());
-          formData.append('image', photoBlob, 'evidence.jpg');
-          
-          // 音訊已經是 Blob
-          formData.append('audio', evidenceAudioBlob, evidenceAudioName || 'evidence.webm');
-          
-          // 保留影片欄位：目前前端未錄影，先附一個空的 video blob
-          const emptyVideoBlob = new Blob([], { type: 'video/webm' });
-          formData.append('video', emptyVideoBlob, 'empty.webm');
-          
-          formData.append('user_id', 'kiosk_user');
-
-          // 調用後端 API
-          const response = await fetch('http://127.0.0.1:8000/submit-checkout', {
-            method: 'POST',
-            body: formData
-          });
-
-          if (!response.ok) {
-            throw new Error('提交失敗');
-          }
-
-          const result = await response.json();
-          console.log('後端回應:', result);
-          
+          // 之後接後端：改成 FormData 上傳 photo/audio
+          await new Promise((r) => setTimeout(r, 1200));
           setCurrentStep(11); // ✅ 送出後直接完成（評分頁）
-        } catch (error) {
-          console.error('提交證據失敗:', error);
-          alert('提交失敗，請稍後再試或聯繫店長');
         } finally {
           setIsSavingEvidence(false);
         }
@@ -939,7 +883,7 @@
                       >
                         開始辨識商品
                       </button>
-                    </div>
+                      </div>
                   ) : (
                     <div className="space-y-4">
                       {cart.map((item) => (
@@ -996,24 +940,72 @@
                     </div>
                   )}
                 </div>
-                <div className="mt-4 flex items-center justify-between">
-                  <div className="text-xl font-semibold text-slate-800">
-                    總金額：<span className="text-2xl text-green-700">${totalAmount}</span>
+                <div className="mt-4 flex justify-end">
+                  <div className="text-right flex flex-col items-end gap-4">
+                    <div className="text-[27.2px] font-bold text-slate-800">
+                      <span className="text-slate-800">總金額：</span><span className="text-green-700">${totalAmount}</span>
+                    </div>
+                    <div className="flex gap-4">
+                      <button
+                        disabled={cart.length === 0}
+                        onClick={() => {
+                          setPaymentMethod("Linepay");
+                          alert("模擬：已轉 Linepay Money 給飛鼠");
+                          setCurrentStep(11);
+                        }}
+                        className={`px-10 py-5 rounded-2xl text-xl font-bold shadow-lg transition-transform hover:scale-105 active:scale-95 whitespace-nowrap ${cart.length === 0
+                          ? "bg-slate-300 text-slate-500 cursor-not-allowed"
+                          : "bg-emerald-600 text-white hover:bg-emerald-500"
+                          }`}
+                      >
+                        🟢 Line Pay
+                      </button>
+                      <button
+                        disabled={cart.length === 0}
+                        onClick={() => setCurrentStep(7)}
+                        className={`px-10 py-5 rounded-2xl text-xl font-bold shadow-lg transition-transform hover:scale-105 active:scale-95 whitespace-nowrap ${cart.length === 0
+                          ? "bg-slate-300 text-slate-500 cursor-not-allowed"
+                          : "bg-slate-800 text-white hover:bg-slate-700"
+                          }`}
+                      >
+                        📘 族人結帳
+                      </button>
+                    </div>
                   </div>
-                  <button
-                    disabled={cart.length === 0}
-                    onClick={() => {
-                      setPaymentMethod(null);
-                      setCurrentStep(6);
-                    }}
-                    className={`px-8 py-4 rounded-2xl text-xl font-bold shadow-lg transition-transform ${cart.length === 0
-                      ? "bg-slate-300 text-slate-500 cursor-not-allowed"
-                      : "bg-green-600 text-white hover:bg-green-500 hover:scale-105 active:scale-95"
-                      }`}
-                  >
-                    💳 結帳
-                  </button>
                 </div>
+                {/* <div className="mt-4 flex justify-end">
+                  <div className="text-right flex flex-col items-end gap-3">
+                    <div className="text-[27.2px] font-bold text-slate-800">
+                      <span className="text-slate-800">總金額：</span><span className="text-green-700">${totalAmount}</span>
+                    </div>
+                    <div className="flex gap-3.6">
+                      <button
+                        disabled={cart.length === 0}
+                        onClick={() => {
+                          setPaymentMethod("Linepay");
+                          alert("模擬：已轉 Linepay Money 給飛鼠");
+                          setCurrentStep(11);
+                        }}
+                        className={`px-7.2 py-4.8 rounded-2xl text-base font-semibold shadow-lg transition-transform whitespace-nowrap ${cart.length === 0
+                          ? "bg-slate-300 text-slate-500 cursor-not-allowed"
+                          : "bg-emerald-600 text-white hover:bg-emerald-500 hover:scale-105 active:scale-95"
+                          }`}
+                      >
+                        🟢 Line Pay
+                      </button>
+                      <button
+                        disabled={cart.length === 0}
+                        onClick={() => setCurrentStep(7)}
+                        className={`px-7.2 py-4.8 rounded-2xl text-base font-semibold shadow-lg transition-transform whitespace-nowrap ${cart.length === 0
+                          ? "bg-slate-300 text-slate-500 cursor-not-allowed"
+                          : "bg-slate-800 text-white hover:bg-slate-700 hover:scale-105 active:scale-95"
+                          }`}
+                      >
+                        📘 族人結帳
+                      </button>
+                    </div>
+                  </div>
+                </div> */}
               </div>
             );
 
@@ -1108,10 +1100,10 @@
                     </button>
                   </div>
                   <button
-                    onClick={() => setCurrentStep(6)}
+                    onClick={() => setCurrentStep(5)}
                     className="mt-4 text-slate-500 underline text-sm"
                   >
-                    ⬅ 返回支付方式選擇
+                    ⬅ 返回購物車
                   </button>
                 </div>
               </div>
@@ -1158,12 +1150,12 @@
                     <button
                       onClick={() => {
                         resetEvidence();
-                        setCurrentStep(6);
+                        setCurrentStep(5);
                       }}
                       disabled={isSavingEvidence || isRecordingAudio}
                       className="flex-1 px-6 py-4 rounded-2xl bg-slate-100 text-slate-700 text-lg font-semibold shadow-md hover:bg-slate-200 disabled:bg-slate-200 disabled:text-slate-400"
                     >
-                      ⬅ 返回支付方式
+                      ⬅ 返回購物車
                     </button>
                   </div>
 
@@ -1264,7 +1256,6 @@
                           setEvidenceAudioBlob(null);
                           revokeIfBlob(evidenceAudioUrl);
                           setEvidenceAudioUrl(null);
-                          setEvidenceAudioName("evidence.webm");
                         }}
                         disabled={isSavingEvidence}
                         className="flex-1 px-6 py-4 rounded-2xl bg-slate-100 text-slate-700 text-lg font-semibold shadow-md hover:bg-slate-200 disabled:bg-slate-200 disabled:text-slate-400"
@@ -1301,14 +1292,14 @@
                   )}
 
                   <button
-                    onClick={() => setCurrentStep(10)}
+                    onClick={submitEvidence}
                     disabled={!evidenceSnapshot || !evidenceAudioBlob || isSavingEvidence || isRecordingAudio}
                     className={`w-full px-6 py-4 rounded-2xl text-xl font-bold shadow-lg transition-transform ${!evidenceSnapshot || !evidenceAudioBlob || isSavingEvidence || isRecordingAudio
                       ? "bg-slate-300 text-slate-600 cursor-not-allowed"
                       : "bg-slate-900 text-white hover:bg-slate-800 hover:scale-105 active:scale-95"
                       }`}
                   >
-                    下一步：確認內容 ✅
+                    {isSavingEvidence ? "送出中..." : "📤 確認送出"}
                   </button>
                 </div>
 
