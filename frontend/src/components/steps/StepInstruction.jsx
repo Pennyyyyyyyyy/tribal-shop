@@ -1,6 +1,4 @@
- // src/components/steps/StepInstruction.jsx
-import React from 'react';
-import CameraView from '../CameraView'; 
+
 
 // src/components/steps/StepInstruction.jsx
 import React from 'react';
