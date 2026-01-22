@@ -45,7 +45,13 @@
   <script type="text/babel" data-presets="env,react">
     const { useState, useEffect, useRef, useMemo } = React;
 
-    // ---- Mock 商品資料 ----
+    // Define the recordedAuthAudioUrl variable
+    const recordedAuthAudioUrl = ""; // Leave empty if no audio file is provided 之後要改音檔
+
+    // ---- API 配置 ----
+    const API_BASE_URL = "http://127.0.0.1:8000";
+
+    // ---- Mock 商品資料（當後端無法連接時使用）----
     const MOCK_ITEMS = [
       { id: 1, name: "蘋果", price: 30, image: "🍎" },
       { id: 2, name: "香蕉", price: 25, image: "🍌" },
@@ -54,24 +60,30 @@
       { id: 5, name: "餅乾", price: 50, image: "🍪" },
     ];
 
-    // A：辨識信心度門檻（越高＝越常要確認；越低＝越常自動加入）
+    // A：辨識信心度門檻
     const CONFIRM_THRESHOLD = 0.78;
 
-    function getRandomMockItem() {
-      const base = MOCK_ITEMS[Math.floor(Math.random() * MOCK_ITEMS.length)];
-      // 模擬辨識信心度：0.55 ~ 0.98
+    // 從後端取得商品列表，失敗則使用 mock
+    async function fetchProducts() {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/products`);
+        if (!response.ok) throw new Error("Failed to fetch products");
+        const data = await response.json();
+        return data.products || MOCK_ITEMS;
+      } catch (error) {
+        console.warn("後端連接失敗，使用本地 mock 資料:", error);
+        return MOCK_ITEMS;
+      }
+    }
+
+    // 生成隨機商品（帶信心度）
+    function getRandomMockItem(products) {
+      const base = products[Math.floor(Math.random() * products.length)];
       const confidence = Math.round((0.55 + Math.random() * 0.43) * 100) / 100;
       return { ...base, quantity: 1, confidence };
     }
 
-    //12.31改
-    // function getRandomMockItem() {
-    //   const base = MOCK_ITEMS[Math.floor(Math.random() * MOCK_ITEMS.length)];
-    //   return { ...base, quantity: 1 };
-    // }
-
-    // 相機元件：啟動 getUserMedia、顯示畫面並處理權限/錯誤
-    // 支援外部 videoRef（用於拍照抓 frame），以及 ready/error 回報
+    // 相機元件
     function CameraView({
       label = "CAMERA",
       status = "LIVE",
@@ -177,9 +189,11 @@
 
     // ---- 主組件 ----
     function CheckoutApp() {
-      const [currentStep, setCurrentStep] = useState(1); // 1~11
+      const [currentStep, setCurrentStep] = useState(1);
       const [cart, setCart] = useState([]);
       const [currentItem, setCurrentItem] = useState(null);
+      const [products, setProducts] = useState(MOCK_ITEMS);
+      const [apiError, setApiError] = useState("");
 
       // ===== A：掃描頁合併確認（Step 3 內完成）=====
       const [scanNonce, setScanNonce] = useState(0); // 觸發下一輪掃描
@@ -263,6 +277,8 @@
       const evidenceVideoRef = useRef(null);
       const evidenceCanvasRef = useRef(null);
 
+      const authAudioRef = useRef(null);
+
       const [camReady, setCamReady] = useState(false);
       const [camErr, setCamErr] = useState("");
       const [micErr, setMicErr] = useState("");
@@ -285,6 +301,26 @@
       const [rating, setRating] = useState(0);
       const [feedback, setFeedback] = useState("");
 
+      // 初始化：檢查後端連接並取得商品列表
+      useEffect(() => {
+        (async () => {
+          try {
+            const response = await fetch(`${API_BASE_URL}/api/products`);
+            if (response.ok) {
+              const data = await response.json();
+              setProducts(data.products || MOCK_ITEMS);
+              setApiError(""); // 清除錯誤
+            } else {
+              setApiError("後端連接失敗，使用本地資料");
+            }
+          } catch (error) {
+            console.warn("後端連接失敗，使用本地 mock 資料:", error);
+            setApiError("後端暫未連接，使用本地模擬資料");
+            // products 已設為 MOCK_ITEMS，無需改變
+          }
+        })();
+      }, []); // 只在組件載入時執行一次
+
       // Step 2: 進入結帳引導後，3 秒自動進入 Step 3
       useEffect(() => {
         if (currentStep === 2) {
@@ -303,8 +339,8 @@
         setPendingItem(null);
 
         const t1 = setTimeout(() => {
-          const item = getRandomMockItem();
-          setCurrentItem(item); // 保留相容性
+          const item = getRandomMockItem(products);
+          setCurrentItem(item);
           const ok = (item.confidence || 0) >= CONFIRM_THRESHOLD;
 
           if (ok) {
@@ -328,20 +364,8 @@
           clearTimeout(t1);
           if (window.__scan_t2) clearTimeout(window.__scan_t2);
         };
-      }, [currentStep, scanNonce]);
+      }, [currentStep, scanNonce, products]); // 依賴 products，確保用最新商品列表
 
-
-      // Step 3: 辨識中，2 秒後產生一個 Mock 商品並進入 Step 4
-      // useEffect(() => {
-      //   if (currentStep === 3) {
-      //     const timer = setTimeout(() => {
-      //       const item = getRandomMockItem();
-      //       setCurrentItem(item);
-      //       setCurrentStep(3);
-      //     }, 2000);
-      //     return () => clearTimeout(timer);
-      //   }
-      // }, [currentStep]);
 
       // 將目前辨識到的商品加入購物車（如果已存在則數量 +1）
       const addCurrentItemToCart = () => {
@@ -367,7 +391,7 @@
       // 讓使用者唸的句子：依購物車更貼近使用情境
       const cartSentence = useMemo(() => {
         if (!cart.length) return "我是 XXX，我買了一個 XX 和一個 XXX";
-        const parts = cart.slice(0, 3).map((it) => `${it.name} ${it.quantity} 個`);
+        const parts = cart.slice(0, 3).map((it) => `${it.quantity} 個 ${it.name} `);
         const tail = cart.length > 3 ? "等" : "";
         return `我是 XXX，我買了 ${parts.join("、")}${tail}`;
       }, [cart]);
@@ -491,14 +515,37 @@
         }
       };
 
+      // 上傳存證（照片 + 錄音）到後端
       const submitEvidence = async () => {
         if (!evidenceSnapshot || !evidenceAudioBlob || isSavingEvidence || isRecordingAudio) return;
 
         setIsSavingEvidence(true);
         try {
-          // 之後接後端：改成 FormData 上傳 photo/audio
-          await new Promise((r) => setTimeout(r, 1200));
-          setCurrentStep(11); // ✅ 送出後直接完成（評分頁）
+          const formData = new FormData();
+
+          // 轉換 dataURL 為 Blob
+          const response = await fetch(evidenceSnapshot);
+          const photoBlob = await response.blob();
+
+          formData.append("cart_items", JSON.stringify(cart));
+          formData.append("total_amount", totalAmount);
+          formData.append("photo", photoBlob, "evidence.jpg");
+          formData.append("audio", evidenceAudioBlob, "evidence.webm");
+
+
+          const uploadResponse = await fetch(`${API_BASE_URL}/api/checkout`, {
+            method: "POST",
+            body: formData,
+          });
+
+          if (!uploadResponse.ok) {
+            throw new Error("上傳存證失敗");
+          }
+
+          setCurrentStep(11);
+        } catch (error) {
+          console.error("上傳存證出錯:", error);
+          alert("上傳存證失敗，請重試");
         } finally {
           setIsSavingEvidence(false);
         }
@@ -883,7 +930,7 @@
                       >
                         開始辨識商品
                       </button>
-                      </div>
+                    </div>
                   ) : (
                     <div className="space-y-4">
                       {cart.map((item) => (
@@ -1049,43 +1096,185 @@
             );
 
           // Step 7: 賒帳身份驗證
-          case 7:
+          case 7: {
+            const authAudioUrl = recordedAuthAudioUrl || null;
+
+            const playAuthAudio = () => {
+              if (!authAudioUrl || !authAudioRef.current) return;
+              authAudioRef.current.currentTime = 0;
+              authAudioRef.current.play();
+            };
+
+            const onPressDigit = (d) => {
+              if (authLocked) return;
+              if (authPassword.length >= 4) return;
+              setAuthPassword((prev) => prev + d);
+            };
+
+            const onClear = () => {
+              if (authLocked) return;
+              setAuthPassword("");
+            };
+
+            return (
+              <div className="w-full h-full relative">
+                {/* ✅ 左上角：返回購物車（在大框內） */}
+                <button
+                  type="button"
+                  onClick={() => setCurrentStep(5)}
+                  className="absolute top-6 left-6 text-slate-600 hover:text-slate-900"
+                >
+                  ← 返回購物車
+                </button>
+
+                {/* 主要內容置中 */}
+                <div className="flex-1 flex items-center justify-center">
+                  <div className="w-full max-w-xl flex flex-col items-center gap-6 px-6">
+                    <h2 className="text-4xl font-black text-center text-slate-900">
+                      賒帳身份驗證
+                    </h2>
+
+                    {/* ✅ 同一列：提示文字 + 聲音按鈕 */}
+                    <div className="w-full flex items-center justify-center gap-4">
+                      <p className="text-slate-600 text-center">
+                        請按下語音提示，並輸入密碼完成身份確認。
+                      </p>
+
+                      <button
+                        type="button"
+                        onClick={playAuthAudio}
+                        disabled={!authAudioUrl}
+                        className={`h-10 w-10 rounded-full shadow flex items-center justify-center text-xl
+              ${authAudioUrl ? "bg-white hover:bg-slate-100 active:scale-95" : "bg-slate-200 cursor-not-allowed"}
+            `}
+                        aria-label="播放語音提示"
+                        title="播放語音提示"
+                      >
+                        🔊
+                      </button>
+
+                      {authAudioUrl && (
+                        <audio ref={authAudioRef} src={authAudioUrl} className="hidden" />
+                      )}
+                    </div>
+
+                    {/* 數字鍵盤 */}
+                    <div className="grid grid-cols-5 gap-4 w-full">
+                      {["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"].map((n) => (
+                        <button
+                          key={n}
+                          type="button"
+                          onClick={() => onPressDigit(n)}
+                          disabled={authLocked}
+                          className={`h-16 rounded-2xl shadow text-xl font-semibold transition
+                ${authLocked ? "bg-slate-200 cursor-not-allowed" : "bg-white hover:bg-slate-100 active:scale-95"}
+              `}
+                        >
+                          {n}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* 密碼顯示 */}
+                    <div className="w-full">
+                      <div className="text-slate-700 font-semibold mb-2">輸入的密碼</div>
+                      <input
+                        value={"●".repeat(authPassword.length)}
+                        readOnly
+                        className="w-full h-14 rounded-2xl border border-slate-200 bg-white px-4 text-lg"
+                        placeholder="請輸入密碼"
+                      />
+                    </div>
+
+                    {/* 錯誤訊息 */}
+                    {authErrorMsg && (
+                      <div className="w-full rounded-2xl bg-rose-50 border border-rose-200 px-4 py-3 text-rose-700">
+                        {authErrorMsg}
+                      </div>
+                    )}
+
+                    {/* 清除 / 確認 */}
+                    <div className="flex items-center gap-4 w-full">
+                      <button
+                        type="button"
+                        onClick={onClear}
+                        disabled={authLocked}
+                        className={`flex-1 h-14 rounded-2xl shadow font-semibold transition
+              ${authLocked ? "bg-slate-200 cursor-not-allowed" : "bg-white hover:bg-slate-100"}
+            `}
+                      >
+                        清除
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleAuthConfirm}
+                        disabled={authLocked || authPassword.length < 4}
+                        className={`flex-1 h-14 rounded-2xl shadow font-semibold text-white transition
+              ${authLocked || authPassword.length < 4
+                            ? "bg-emerald-300 cursor-not-allowed"
+                            : "bg-emerald-600 hover:bg-emerald-700"}
+            `}
+                      >
+                        確認
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          }
+
+
+
+
+
+          /* case 7:
             return (
               <div className="flex flex-col items-center justify-center h-full space-y-6">
                 <h2 className="text-3xl font-bold text-slate-800 mb-2">賒帳身份驗證</h2>
                 <p className="text-lg text-slate-600 max-w-xl text-center">
-                  請輸入通關密碼完成身份確認。
-                  <br />
-                  <span className="text-sm text-slate-500">
-                    （可搭配族語提示或口訣，例如：某句族語密語）
-                  </span>
+                  請聆聽錄音檔，並根據提示輸入正確的密碼完成身份確認。
                 </p>
                 <div className="bg-white rounded-3xl shadow-xl border border-slate-100 px-8 py-6 w-full max-w-md">
-                  <label className="block text-left text-slate-700 mb-2 font-semibold">
-                    通關密碼
-                  </label>
-                  <input
-                    type="password"
-                    className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                    placeholder="請輸入 4 位數密碼"
-                    value={authPassword}
-                    onChange={(e) => setAuthPassword(e.target.value)}
-                    disabled={authLocked}
-                  />
+                  <div className="mb-4">
+                    <audio controls>
+                      <source src="path/to/audio/file.mp3" type="audio/mpeg" />
+                      您的瀏覽器不支援音訊播放。
+                    </audio>
+                  </div>
+                  <div className="grid grid-cols-5 gap-4">
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 0].map((num) => (
+                      <button
+                        key={num}
+                        onClick={() => setAuthPassword((prev) => prev + num)}
+                        className="px-4 py-3 rounded-2xl bg-slate-100 text-slate-700 text-lg font-semibold shadow-md hover:bg-slate-200"
+                      >
+                        {num}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="mt-4">
+                    <label className="block text-left text-slate-700 mb-2 font-semibold">
+                      輸入的密碼
+                    </label>
+                    <input
+                      type="password"
+                      className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                      value={authPassword}
+                      readOnly
+                    />
+                  </div>
                   {authErrorMsg && (
                     <div className="mt-2 text-sm text-red-600">{authErrorMsg}</div>
                   )}
                   <div className="flex flex-col md:flex-row gap-4 mt-6">
                     <button
                       type="button"
-                      onClick={() => setAuthPassword("1234")}
-                      disabled={authLocked}
-                      className={`flex-1 px-4 py-3 rounded-2xl text-lg font-semibold shadow-md ${authLocked
-                        ? "bg-slate-200 text-slate-400 cursor-not-allowed"
-                        : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                        }`}
+                      onClick={() => setAuthPassword("")}
+                      className="flex-1 px-4 py-3 rounded-2xl bg-slate-100 text-slate-700 text-lg font-semibold shadow-md hover:bg-slate-200"
                     >
-                      🔁 回填示範密碼
+                      🔄 清除
                     </button>
                     <button
                       type="button"
@@ -1108,7 +1297,7 @@
                 </div>
               </div>
             );
-
+ */
           // Step 8: 拍照頁（先拍照）
           case 8:
             return (
@@ -1451,6 +1640,7 @@
               <div>
                 <h1 className="text-2xl font-bold tracking-wide">部落誠實商店</h1>
                 <p className="text-xs text-green-100">Self Checkout Kiosk Prototype</p>
+                {apiError && <p className="text-xs text-yellow-200">⚠️ {apiError}</p>}
               </div>
             </div>
             <div className="flex flex-col items-end text-sm">
