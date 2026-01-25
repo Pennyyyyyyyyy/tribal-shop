@@ -190,6 +190,7 @@
     // ---- 主組件 ----
     function CheckoutApp() {
       const [currentStep, setCurrentStep] = useState(1);
+      const [isTribalMember, setIsTribalMember] = useState(false);
       const [cart, setCart] = useState([]);
       const [currentItem, setCurrentItem] = useState(null);
       const [products, setProducts] = useState(MOCK_ITEMS);
@@ -560,7 +561,7 @@
           setAuthErrorMsg("");
           setAuthErrorCount(0);
           setAuthLocked(false);
-          setCurrentStep(8); // ✅ 進入拍照頁
+          setCurrentStep(2); // Proceed to item recognition after successful authentication
         } else {
           const newCount = authErrorCount + 1;
           setAuthErrorCount(newCount);
@@ -598,7 +599,7 @@
       // ---- 各 Step UI ----
       const renderStepContent = () => {
         switch (currentStep) {
-          // Step 1: 歡迎頁
+          // Step 1: 遊客 / 族人選擇頁
           case 1:
             return (
               <div className="flex flex-col items-center justify-center h-full text-center space-y-8">
@@ -607,18 +608,26 @@
                 <p className="text-xl text-slate-600">
                   歡迎來到部落誠實商店自助結帳系統
                 </p>
+
                 <div className="flex flex-col md:flex-row gap-6 mt-6">
                   <button
-                    onClick={() => console.log("教學功能待開發")}
-                    className="px-10 py-5 rounded-2xl bg-slate-200 hover:bg-slate-300 text-xl font-semibold shadow-md transition-transform hover:scale-105 active:scale-95"
-                  >
-                    📚 教學（尚未開放）
-                  </button>
-                  <button
-                    onClick={() => setCurrentStep(2)}
+                    onClick={() => {
+                      setIsTribalMember(false);
+                      setCurrentStep(2);
+                    }}
                     className="px-10 py-5 rounded-2xl bg-green-600 hover:bg-green-500 text-white text-2xl font-bold shadow-lg transition-transform hover:scale-105 active:scale-95"
                   >
-                    🛒 開始結帳
+                     遊客
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setIsTribalMember(true);
+                      setCurrentStep(7);
+                    }}
+                    className="px-10 py-5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-white text-2xl font-bold shadow-lg transition-transform hover:scale-105 active:scale-95"
+                  >
+                     族人
                   </button>
                 </div>
               </div>
@@ -990,102 +999,75 @@
                 <div className="mt-4 flex justify-end">
                   <div className="text-right flex flex-col items-end gap-4">
                     <div className="text-[27.2px] font-bold text-slate-800">
-                      <span className="text-slate-800">總金額：</span><span className="text-green-700">${totalAmount}</span>
+                      <span className="text-slate-800">總金額：</span>
+                      <span className="text-green-700">${totalAmount}</span>
                     </div>
+
                     <div className="flex gap-4">
+                      {/* ✅ 統一成一顆「結帳」 */}
                       <button
                         disabled={cart.length === 0}
                         onClick={() => {
-                          setPaymentMethod("Linepay");
-                          alert("模擬：已轉 Linepay Money 給飛鼠");
-                          setCurrentStep(11);
+                          // 遊客 → Line Pay 頁（Step 6）
+                          // 族人 → 賒帳驗證頁（Step 7）
+                          setCurrentStep(isTribalMember ? 8 : 6);
                         }}
-                        className={`px-10 py-5 rounded-2xl text-xl font-bold shadow-lg transition-transform hover:scale-105 active:scale-95 whitespace-nowrap ${cart.length === 0
-                          ? "bg-slate-300 text-slate-500 cursor-not-allowed"
-                          : "bg-emerald-600 text-white hover:bg-emerald-500"
-                          }`}
+                        className={`px-10 py-5 rounded-2xl text-xl font-bold shadow-lg transition-transform hover:scale-105 active:scale-95 whitespace-nowrap ${
+                          cart.length === 0
+                            ? "bg-slate-300 text-slate-500 cursor-not-allowed"
+                            : "bg-sky-600 text-white hover:bg-sky-500"
+                        }`}
                       >
-                        🟢 Line Pay
-                      </button>
-                      <button
-                        disabled={cart.length === 0}
-                        onClick={() => setCurrentStep(7)}
-                        className={`px-10 py-5 rounded-2xl text-xl font-bold shadow-lg transition-transform hover:scale-105 active:scale-95 whitespace-nowrap ${cart.length === 0
-                          ? "bg-slate-300 text-slate-500 cursor-not-allowed"
-                          : "bg-slate-800 text-white hover:bg-slate-700"
-                          }`}
-                      >
-                        📘 族人結帳
+                        🛒 結帳
                       </button>
                     </div>
                   </div>
                 </div>
-                {/* <div className="mt-4 flex justify-end">
-                  <div className="text-right flex flex-col items-end gap-3">
-                    <div className="text-[27.2px] font-bold text-slate-800">
-                      <span className="text-slate-800">總金額：</span><span className="text-green-700">${totalAmount}</span>
-                    </div>
-                    <div className="flex gap-3.6">
-                      <button
-                        disabled={cart.length === 0}
-                        onClick={() => {
-                          setPaymentMethod("Linepay");
-                          alert("模擬：已轉 Linepay Money 給飛鼠");
-                          setCurrentStep(11);
-                        }}
-                        className={`px-7.2 py-4.8 rounded-2xl text-base font-semibold shadow-lg transition-transform whitespace-nowrap ${cart.length === 0
-                          ? "bg-slate-300 text-slate-500 cursor-not-allowed"
-                          : "bg-emerald-600 text-white hover:bg-emerald-500 hover:scale-105 active:scale-95"
-                          }`}
-                      >
-                        🟢 Line Pay
-                      </button>
-                      <button
-                        disabled={cart.length === 0}
-                        onClick={() => setCurrentStep(7)}
-                        className={`px-7.2 py-4.8 rounded-2xl text-base font-semibold shadow-lg transition-transform whitespace-nowrap ${cart.length === 0
-                          ? "bg-slate-300 text-slate-500 cursor-not-allowed"
-                          : "bg-slate-800 text-white hover:bg-slate-700 hover:scale-105 active:scale-95"
-                          }`}
-                      >
-                        📘 族人結帳
-                      </button>
-                    </div>
-                  </div>
-                </div> */}
               </div>
             );
 
-          // Step 6: 支付方式選擇
+          // Step 6: Line Pay（遊客用）
           case 6:
-            return (
+            return isTribalMember ? (
+              <div className="flex flex-col items-center justify-center h-full space-y-6 text-center">
+                <h2 className="text-3xl font-bold text-slate-800">結帳</h2>
+                <p className="text-lg text-slate-600">
+                  你目前選的是「族人」，請使用賒帳流程結帳。
+                </p>
+                <div className="flex flex-col md:flex-row gap-4">
+                  <button
+                    onClick={() => setCurrentStep(7)}
+                    className="px-10 py-5 rounded-2xl bg-slate-800 text-white text-xl font-bold shadow-lg hover:bg-slate-700 transition-transform hover:scale-105 active:scale-95"
+                  >
+                    📘 前往賒帳驗證
+                  </button>
+                  <button
+                    onClick={() => setCurrentStep(5)}
+                    className="px-10 py-5 rounded-2xl bg-slate-100 text-slate-700 text-xl font-bold shadow-md hover:bg-slate-200"
+                  >
+                    ⬅ 返回購物車
+                  </button>
+                </div>
+              </div>
+            ) : (
               <div className="flex flex-col items-center justify-center h-full space-y-8 text-center">
-                <h2 className="text-3xl font-bold text-slate-800">請選擇支付方式</h2>
+                <h2 className="text-3xl font-bold text-slate-800">Line Pay 結帳</h2>
                 <p className="text-lg text-slate-600">
                   本次消費金額：
                   <span className="text-2xl text-green-700 font-semibold">${totalAmount}</span>
                 </p>
-                <div className="flex flex-col md:flex-row gap-6 mt-4">
-                  <button
-                    onClick={() => {
-                      setPaymentMethod("Linepay");
-                      alert("模擬：已轉 Linepay Money 給飛鼠");
-                      setCurrentStep(11); // ✅ 不影響其他功能：LinePay 直接完成
-                    }}
-                    className="px-10 py-5 rounded-2xl bg-emerald-600 text-white text-xl font-bold shadow-lg hover:bg-emerald-500 transition-transform hover:scale-105 active:scale-95"
-                  >
-                    🟢 Line Pay 付款
-                  </button>
-                  <button
-                    onClick={() => {
-                      setPaymentMethod("Credit");
-                      setCurrentStep(7);
-                    }}
-                    className="px-10 py-5 rounded-2xl bg-slate-800 text-white text-xl font-bold shadow-lg hover:bg-slate-700 transition-transform hover:scale-105 active:scale-95"
-                  >
-                    📘 賒帳（限已註冊族人）
-                  </button>
-                </div>
+
+                <button
+                  onClick={() => {
+                    setPaymentMethod("Linepay");
+                    alert("模擬：已轉 Linepay Money 給飛鼠");
+                    setCurrentStep(11);
+                  }}
+                  className="px-10 py-5 rounded-2xl bg-emerald-600 text-white text-xl font-bold shadow-lg hover:bg-emerald-500 transition-transform hover:scale-105 active:scale-95"
+                >
+                   LinePay 付款
+                </button>
+
                 <button
                   onClick={() => setCurrentStep(5)}
                   className="mt-4 text-slate-500 underline text-sm"
@@ -1098,6 +1080,7 @@
           // Step 7: 賒帳身份驗證
           case 7: {
             const authAudioUrl = recordedAuthAudioUrl || null;
+            const authBackStep = cart.length ? 5 : 1;
 
             const playAuthAudio = () => {
               if (!authAudioUrl || !authAudioRef.current) return;
@@ -1118,23 +1101,20 @@
 
             return (
               <div className="w-full h-full relative">
-                {/* ✅ 左上角：返回購物車（在大框內） */}
                 <button
                   type="button"
-                  onClick={() => setCurrentStep(5)}
+                  onClick={() => setCurrentStep(authBackStep)}
                   className="absolute top-6 left-6 text-slate-600 hover:text-slate-900"
                 >
                   ← 返回購物車
                 </button>
 
-                {/* 主要內容置中 */}
                 <div className="flex-1 flex items-center justify-center">
                   <div className="w-full max-w-xl flex flex-col items-center gap-6 px-6">
                     <h2 className="text-4xl font-black text-center text-slate-900">
                       賒帳身份驗證
                     </h2>
 
-                    {/* ✅ 同一列：提示文字 + 聲音按鈕 */}
                     <div className="w-full flex items-center justify-center gap-4">
                       <p className="text-slate-600 text-center">
                         請按下語音提示，並輸入密碼完成身份確認。
@@ -1145,8 +1125,8 @@
                         onClick={playAuthAudio}
                         disabled={!authAudioUrl}
                         className={`h-10 w-10 rounded-full shadow flex items-center justify-center text-xl
-              ${authAudioUrl ? "bg-white hover:bg-slate-100 active:scale-95" : "bg-slate-200 cursor-not-allowed"}
-            `}
+                          ${authAudioUrl ? "bg-white hover:bg-slate-100 active:scale-95" : "bg-slate-200 cursor-not-allowed"}
+                        `}
                         aria-label="播放語音提示"
                         title="播放語音提示"
                       >
@@ -1158,17 +1138,16 @@
                       )}
                     </div>
 
-                    {/* 數字鍵盤 */}
                     <div className="grid grid-cols-5 gap-4 w-full">
-                      {["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"].map((n) => (
+                      {["1","2","3","4","5","6","7","8","9","0"].map((n) => (
                         <button
                           key={n}
                           type="button"
                           onClick={() => onPressDigit(n)}
                           disabled={authLocked}
                           className={`h-16 rounded-2xl shadow text-xl font-semibold transition
-                ${authLocked ? "bg-slate-200 cursor-not-allowed" : "bg-white hover:bg-slate-100 active:scale-95"}
-              `}
+                            ${authLocked ? "bg-slate-200 cursor-not-allowed" : "bg-white hover:bg-slate-100 active:scale-95"}
+                          `}
                         >
                           {n}
                         </button>
@@ -1193,15 +1172,14 @@
                       </div>
                     )}
 
-                    {/* 清除 / 確認 */}
                     <div className="flex items-center gap-4 w-full">
                       <button
                         type="button"
                         onClick={onClear}
                         disabled={authLocked}
                         className={`flex-1 h-14 rounded-2xl shadow font-semibold transition
-              ${authLocked ? "bg-slate-200 cursor-not-allowed" : "bg-white hover:bg-slate-100"}
-            `}
+                          ${authLocked ? "bg-slate-200 cursor-not-allowed" : "bg-white hover:bg-slate-100"}
+                        `}
                       >
                         清除
                       </button>
@@ -1211,10 +1189,10 @@
                         onClick={handleAuthConfirm}
                         disabled={authLocked || authPassword.length < 4}
                         className={`flex-1 h-14 rounded-2xl shadow font-semibold text-white transition
-              ${authLocked || authPassword.length < 4
+                          ${authLocked || authPassword.length < 4
                             ? "bg-emerald-300 cursor-not-allowed"
                             : "bg-emerald-600 hover:bg-emerald-700"}
-            `}
+                        `}
                       >
                         確認
                       </button>
@@ -1225,79 +1203,6 @@
             );
           }
 
-
-
-
-
-          /* case 7:
-            return (
-              <div className="flex flex-col items-center justify-center h-full space-y-6">
-                <h2 className="text-3xl font-bold text-slate-800 mb-2">賒帳身份驗證</h2>
-                <p className="text-lg text-slate-600 max-w-xl text-center">
-                  請聆聽錄音檔，並根據提示輸入正確的密碼完成身份確認。
-                </p>
-                <div className="bg-white rounded-3xl shadow-xl border border-slate-100 px-8 py-6 w-full max-w-md">
-                  <div className="mb-4">
-                    <audio controls>
-                      <source src="path/to/audio/file.mp3" type="audio/mpeg" />
-                      您的瀏覽器不支援音訊播放。
-                    </audio>
-                  </div>
-                  <div className="grid grid-cols-5 gap-4">
-                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 0].map((num) => (
-                      <button
-                        key={num}
-                        onClick={() => setAuthPassword((prev) => prev + num)}
-                        className="px-4 py-3 rounded-2xl bg-slate-100 text-slate-700 text-lg font-semibold shadow-md hover:bg-slate-200"
-                      >
-                        {num}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="mt-4">
-                    <label className="block text-left text-slate-700 mb-2 font-semibold">
-                      輸入的密碼
-                    </label>
-                    <input
-                      type="password"
-                      className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                      value={authPassword}
-                      readOnly
-                    />
-                  </div>
-                  {authErrorMsg && (
-                    <div className="mt-2 text-sm text-red-600">{authErrorMsg}</div>
-                  )}
-                  <div className="flex flex-col md:flex-row gap-4 mt-6">
-                    <button
-                      type="button"
-                      onClick={() => setAuthPassword("")}
-                      className="flex-1 px-4 py-3 rounded-2xl bg-slate-100 text-slate-700 text-lg font-semibold shadow-md hover:bg-slate-200"
-                    >
-                      🔄 清除
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleAuthConfirm}
-                      disabled={authLocked}
-                      className={`flex-1 px-4 py-3 rounded-2xl text-lg font-bold shadow-md ${authLocked
-                        ? "bg-slate-300 text-slate-500 cursor-not-allowed"
-                        : "bg-green-600 text-white hover:bg-green-500"
-                        }`}
-                    >
-                      ✅ 確認
-                    </button>
-                  </div>
-                  <button
-                    onClick={() => setCurrentStep(5)}
-                    className="mt-4 text-slate-500 underline text-sm"
-                  >
-                    ⬅ 返回購物車
-                  </button>
-                </div>
-              </div>
-            );
- */
           // Step 8: 拍照頁（先拍照）
           case 8:
             return (
