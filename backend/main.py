@@ -3,6 +3,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import init_db
 from app.routers import products, checkout, admin, vision
+from backend import test_vision
 
 # 1. 初始化資料庫
 init_db()

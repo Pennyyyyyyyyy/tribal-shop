@@ -3,15 +3,15 @@ import json
 from PIL import Image
 from torchvision import transforms
 
-from model import load_model
+from app.ai.model import load_model
 
 
 # =============================
 # PATH
 # =============================
 
-MODEL_PATH = "best_efficientnet_model.pt"
-LABELS_JSON = "labels.json"
+MODEL_PATH = "app/ai/best_efficientnet_model.pt"
+LABELS_JSON = "app/ai/labels.json"
 
 
 # =============================
@@ -56,9 +56,9 @@ transform = transforms.Compose([
 # PREDICT FUNCTION
 # =============================
 
-def predict(image_path):
+def predict(image):
 
-    image = Image.open(image_path).convert("RGB")
+    image = image.convert("RGB")
 
     image = transform(image).unsqueeze(0).to(device)
 
