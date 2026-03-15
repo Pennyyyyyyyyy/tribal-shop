@@ -13,31 +13,31 @@ const CATALOG = [
     name: "多力多滋（芝士）",
     price: 49,
     category: "snack",
-    photo: "/uploads/product_photos/多力多滋（芝士）.png",
+    photo: "/photo/多力多滋（芝士）.png",
   },
   {
     name: "多力多滋（黃金起司）",
     price: 49,
     category: "snack",
-    photo: "/uploads/product_photos/多力多滋（黃金起司）.png",
+    photo: "/photo/多力多滋（黃金起司）.png",
   },
   {
     name: "統一牛肉麵",
     price: 32,
     category: "noodle",
-    photo: "/uploads/product_photos/統一牛肉麵.png",
+    photo: "/photo/統一牛肉麵.png",
   },
   {
     name: "統一米粉（肉燥）",
     price: 30,
     category: "noodle",
-    photo: "/uploads/product_photos/統一米粉（肉燥）.png",
+    photo: "/photo/統一米粉（肉燥）.png",
   },
   {
     name: "維力炸醬麵",
     price: 30,
     category: "noodle",
-    photo: "/uploads/product_photos/維力炸醬麵.png",
+    photo: "/photo/維力炸醬麵.png",
   },
 ];
 
@@ -82,11 +82,10 @@ export default function ProductSelectPage() {
           <button
             key={cat.key}
             onClick={() => setActiveCategory(cat.key)}
-            className={`w-full text-left px-4 py-3 rounded-2xl text-base font-semibold transition ${
-              activeCategory === cat.key
+            className={`w-full text-left px-4 py-3 rounded-2xl text-base font-semibold transition ${activeCategory === cat.key
                 ? "bg-emerald-600 text-white shadow-md"
                 : "bg-white text-slate-700 hover:bg-slate-100"
-            }`}
+              }`}
           >
             {cat.label}
           </button>
@@ -113,7 +112,7 @@ export default function ProductSelectPage() {
               >
                 <div className="aspect-[4/3] bg-slate-50 flex items-center justify-center p-2">
                   <img
-                    src={`${API_BASE_URL}${item.photo}`}
+                    src={item.photo}
                     alt={item.name}
                     className="w-full h-full object-contain"
                   />
