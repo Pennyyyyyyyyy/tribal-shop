@@ -113,7 +113,10 @@ export default function ScanPage() {
                       src={
                         scannedItem.image_url.startsWith("http")
                           ? scannedItem.image_url
-                          : `${API_BASE_URL}${scannedItem.image_url}`
+                          : scannedItem.image_url.replace(
+                              "/uploads/product_photos/",
+                              "/photo/"
+                            )
                       }
                       alt={scannedItem.name}
                       className="w-24 h-24 rounded-2xl object-cover border border-slate-200"
