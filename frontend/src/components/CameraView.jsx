@@ -17,42 +17,65 @@ function CameraView({
   useEffect(() => {
     let stream;
 
-    async function start() {
-      try {
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-          const msg = "此瀏覽器不支援相機存取（需 HTTPS 或 localhost）。";
-          setError(msg);
-          onErrorChange?.(msg);
-          return;
-        }
-
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: true,
-          audio: false,
-        });
-
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          setReady(true);
-          onReadyChange?.(true);
-        }
-      } catch (err) {
-        let msg = "無法啟動相機，請檢查權限或裝置。";
-        if (
-          err &&
-          (err.name === "NotAllowedError" ||
-            err.name === "PermissionDeniedError")
-        ) {
-          msg = "相機權限被拒絕，請在網址列授權或改用 HTTPS / localhost。";
-        } else if (err && err.name === "NotFoundError") {
-          msg = "找不到可用攝影機裝置。";
-        }
-
-        setError(msg);
-        onErrorChange?.(msg);
-        onReadyChange?.(false);
-      }
+  async function start() {
+  try {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      const msg = "此瀏覽器不支援相機存取（需 HTTPS 或 localhost）。";
+      setError(msg);
+      onErrorChange?.(msg);
+      return;
     }
+
+    // 先取得權限
+    const temp = await navigator.mediaDevices.getUserMedia({
+      video: true,
+      audio: false,
+    });
+
+    temp.getTracks().forEach((t) => t.stop());
+
+    // 取得所有鏡頭
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const cameras = devices.filter((d) => d.kind === "videoinput");
+
+    if (cameras.length === 0) {
+      throw new Error("No camera found");
+    }
+
+    // ⭐ 使用最後一個鏡頭（通常是外接）
+    const externalCamera = cameras[cameras.length - 1];
+
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        deviceId: { exact: externalCamera.deviceId },
+      },
+      audio: false,
+    });
+
+    if (videoRef.current) {
+      videoRef.current.srcObject = stream;
+      setReady(true);
+      onReadyChange?.(true);
+    }
+
+  } catch (err) {
+    let msg = "無法啟動相機，請檢查權限或裝置。";
+
+    if (
+      err &&
+      (err.name === "NotAllowedError" ||
+        err.name === "PermissionDeniedError")
+    ) {
+      msg = "相機權限被拒絕，請在網址列授權或改用 HTTPS / localhost。";
+    } else if (err && err.name === "NotFoundError") {
+      msg = "找不到可用攝影機裝置。";
+    }
+
+    setError(msg);
+    onErrorChange?.(msg);
+    onReadyChange?.(false);
+  }
+}
 
     start();
 
