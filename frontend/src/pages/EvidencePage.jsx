@@ -172,6 +172,7 @@ export default function EvidencePage() {
               />
             ) : (
               <CameraView
+                mode="internal"
                 label="EVIDENCE CAM"
                 status="STANDBY"
                 videoRef={evidenceVideoRef}

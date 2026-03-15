@@ -191,6 +191,7 @@ export default function ScanPage() {
         {/* 右側：相機 + 拍照按鈕 */}
         <div className="flex-1 flex flex-col items-center justify-center gap-4">
           <CameraView
+            mode="external"
             label="SCANNING CAM"
             status={scanPhase === "SCANNING" ? "SCANNING" : "LIVE"}
             videoRef={scanVideoRef}

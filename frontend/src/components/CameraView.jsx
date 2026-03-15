@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState } from "react";
 function CameraView({
   label = "CAMERA",
   status = "LIVE",
+  mode = "external", // ⭐ external | internal
   children,
   videoRef: externalVideoRef,
   onReadyChange,
@@ -17,65 +18,83 @@ function CameraView({
   useEffect(() => {
     let stream;
 
-  async function start() {
-  try {
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      const msg = "此瀏覽器不支援相機存取（需 HTTPS 或 localhost）。";
-      setError(msg);
-      onErrorChange?.(msg);
-      return;
+    async function startInternalCamera() {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const cameras = devices.filter((d) => d.kind === "videoinput");
+
+      if (cameras.length === 0) throw new Error("No camera");
+
+      // ⭐ 通常 index 0 是內建鏡頭
+      const cam = cameras[0];
+
+      return navigator.mediaDevices.getUserMedia({
+        video: { deviceId: { exact: cam.deviceId } },
+        audio: false,
+      });
     }
 
-    // 先取得權限
-    const temp = await navigator.mediaDevices.getUserMedia({
-      video: true,
-      audio: false,
-    });
+    async function startExternalCamera() {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const cameras = devices.filter((d) => d.kind === "videoinput");
 
-    temp.getTracks().forEach((t) => t.stop());
+      if (cameras.length === 0) throw new Error("No camera");
 
-    // 取得所有鏡頭
-    const devices = await navigator.mediaDevices.enumerateDevices();
-    const cameras = devices.filter((d) => d.kind === "videoinput");
+      // ⭐ 通常最後一個是外接鏡頭
+      const cam = cameras[cameras.length - 1];
 
-    if (cameras.length === 0) {
-      throw new Error("No camera found");
+      return navigator.mediaDevices.getUserMedia({
+        video: { deviceId: { exact: cam.deviceId } },
+        audio: false,
+      });
     }
 
-    // ⭐ 使用最後一個鏡頭（通常是外接）
-    const externalCamera = cameras[cameras.length - 1];
+    async function start() {
+      try {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          const msg = "此瀏覽器不支援相機存取（需 HTTPS 或 localhost）。";
+          setError(msg);
+          onErrorChange?.(msg);
+          return;
+        }
 
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: {
-        deviceId: { exact: externalCamera.deviceId },
-      },
-      audio: false,
-    });
+        // ⭐ 先取得權限
+        const temp = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: false,
+        });
 
-    if (videoRef.current) {
-      videoRef.current.srcObject = stream;
-      setReady(true);
-      onReadyChange?.(true);
+        temp.getTracks().forEach((t) => t.stop());
+
+        // ⭐ 根據 mode 選鏡頭
+        if (mode === "internal") {
+          stream = await startInternalCamera();
+        } else {
+          stream = await startExternalCamera();
+        }
+
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          setReady(true);
+          onReadyChange?.(true);
+        }
+      } catch (err) {
+        let msg = "無法啟動相機，請檢查權限或裝置。";
+
+        if (
+          err &&
+          (err.name === "NotAllowedError" ||
+            err.name === "PermissionDeniedError")
+        ) {
+          msg = "相機權限被拒絕，請在網址列授權或改用 HTTPS / localhost。";
+        } else if (err && err.name === "NotFoundError") {
+          msg = "找不到可用攝影機裝置。";
+        }
+
+        setError(msg);
+        onErrorChange?.(msg);
+        onReadyChange?.(false);
+      }
     }
-
-  } catch (err) {
-    let msg = "無法啟動相機，請檢查權限或裝置。";
-
-    if (
-      err &&
-      (err.name === "NotAllowedError" ||
-        err.name === "PermissionDeniedError")
-    ) {
-      msg = "相機權限被拒絕，請在網址列授權或改用 HTTPS / localhost。";
-    } else if (err && err.name === "NotFoundError") {
-      msg = "找不到可用攝影機裝置。";
-    }
-
-    setError(msg);
-    onErrorChange?.(msg);
-    onReadyChange?.(false);
-  }
-}
 
     start();
 
@@ -83,7 +102,7 @@ function CameraView({
       onReadyChange?.(false);
       if (stream) stream.getTracks().forEach((t) => t.stop());
     };
-  }, [onErrorChange, onReadyChange, videoRef]);
+  }, [mode, onErrorChange, onReadyChange, videoRef]);
 
   return (
     <div className="relative w-full max-w-xl aspect-video bg-black rounded-3xl shadow-2xl overflow-hidden border-4 border-slate-800">
@@ -116,9 +135,6 @@ function CameraView({
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 text-slate-100">
           <div className="text-5xl mb-2">📷</div>
           <div className="text-lg mb-1">正在啟動相機...</div>
-          <div className="text-xs text-slate-300">
-            若長時間無法顯示，請檢查相機權限或改用 HTTPS / localhost。
-          </div>
         </div>
       )}
 
