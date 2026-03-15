@@ -10,6 +10,7 @@ import CartPage from "./pages/CartPage";
 import PaymentPage from "./pages/PaymentPage";
 import EvidencePage from "./pages/EvidencePage";
 import CompletePage from "./pages/CompletePage";
+import ProductSelectPage from "./pages/ProductSelectPage";
 
 function App() {
   return (
@@ -20,6 +21,7 @@ function App() {
           <Route path="/auth" element={<AuthPage />} />
           <Route path="/instruction" element={<InstructionPage />} />
           <Route path="/scan" element={<ScanPage />} />
+          <Route path="/products" element={<ProductSelectPage />} />
           <Route path="/cart" element={<CartPage />} />
           <Route path="/payment" element={<PaymentPage />} />
           <Route path="/evidence" element={<EvidencePage />} />

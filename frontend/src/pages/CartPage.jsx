@@ -9,16 +9,8 @@ export default function CartPage() {
 
   return (
     <div className="flex flex-col w-full h-full">
-      <div className="flex items-center justify-between mb-4">
+      <div className="mb-4">
         <h2 className="text-3xl font-bold text-slate-800">購物車清單</h2>
-        {cart.length > 0 && (
-          <button
-            onClick={() => navigate("/scan")}
-            className="px-4 py-2 rounded-xl bg-sky-100 text-sky-800 text-sm font-semibold hover:bg-sky-200"
-          >
-            ➕ 繼續辨識商品
-          </button>
-        )}
       </div>
 
       <div className="flex-1 bg-white rounded-3xl shadow-inner border border-slate-100 p-6 overflow-auto">
@@ -91,7 +83,17 @@ export default function CartPage() {
         )}
       </div>
 
-      <div className="mt-4 flex justify-end">
+      <div className="mt-4 flex items-end justify-between">
+        {cart.length > 0 ? (
+          <button
+            onClick={() => navigate("/scan")}
+            className="px-5 py-3 rounded-2xl bg-sky-100 text-sky-800 text-base font-semibold hover:bg-sky-200 transition"
+          >
+            繼續辨識商品
+          </button>
+        ) : (
+          <div />
+        )}
         <div className="text-right flex flex-col items-end gap-4">
           <div className="text-[27.2px] font-bold text-slate-800">
             <span className="text-slate-800">總金額：</span>

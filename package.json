@@ -1,0 +1,23 @@
+{
+  "name": "tribal-shop",
+  "version": "1.0.0",
+  "description": "自助結帳系統 — 顧客透過相機掃描商品、確認購物車、選擇付款方式（LINE Pay 或賒帳），並錄製證據（照片＋語音）。每筆交易會透過 LINE 通知店主。",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Alpacamymac/tribal-shop.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Alpacamymac/tribal-shop/issues"
+  },
+  "homepage": "https://github.com/Alpacamymac/tribal-shop#readme",
+  "devDependencies": {
+    "@playwright/test": "^1.58.2"
+  }
+}

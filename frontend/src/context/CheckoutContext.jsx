@@ -31,7 +31,8 @@ export function CheckoutProvider({ children }) {
         const response = await fetch(`${API_BASE_URL}/api/products`);
         if (response.ok) {
           const data = await response.json();
-          setProducts(data.products || MOCK_ITEMS);
+          const list = Array.isArray(data) ? data : data.products;
+          setProducts(list && list.length > 0 ? list : MOCK_ITEMS);
         }
       } catch (error) {
         console.warn("後端連接失敗，使用本地 mock 資料:", error);

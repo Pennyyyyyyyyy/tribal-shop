@@ -4,7 +4,7 @@ import { useCheckout } from "../context/CheckoutContext";
 
 export default function PaymentPage() {
   const navigate = useNavigate();
-  const { totalAmount, isTribalMember, setPaymentMethod } = useCheckout();
+  const { totalAmount, isTribalMember, setPaymentMethod, resetAll } = useCheckout();
 
   if (isTribalMember) {
     return (
@@ -46,7 +46,8 @@ export default function PaymentPage() {
         onClick={() => {
           setPaymentMethod("Linepay");
           alert("模擬：已轉 Linepay Money 給飛鼠");
-          navigate("/complete");
+          resetAll();
+          navigate("/");
         }}
         className="px-10 py-5 rounded-2xl bg-emerald-600 text-white text-xl font-bold shadow-lg hover:bg-emerald-500 transition-transform hover:scale-105 active:scale-95"
       >
