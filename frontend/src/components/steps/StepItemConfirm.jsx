@@ -21,7 +21,7 @@ function StepItemConfirm({ currentItem, onRescan, onConfirmNext, onConfirmGoCart
                 數量：{currentItem.quantity}
               </div>
               <div className="text-xl font-semibold text-green-700 mb-4">
-                金額：${currentItem.price}
+                金額：NT${currentItem.price}
               </div>
               <div className="text-sm text-slate-400">
                 若商品不正確，請選擇重新辨識。
@@ -32,19 +32,19 @@ function StepItemConfirm({ currentItem, onRescan, onConfirmNext, onConfirmGoCart
         <div className="flex-1 flex flex-col justify-center gap-4">
           <button
             onClick={onRescan}
-            className="w-full px-6 py-4 rounded-2xl bg-red-100 text-red-700 font-semibold text-lg hover:bg-red-200 shadow-md transition-transform hover:scale-105 active:scale-95"
+            className="w-full px-8 py-4 rounded-2xl bg-red-100 text-red-700 font-semibold text-lg hover:bg-red-200 shadow-md transition-transform hover:scale-105 active:scale-95"
           >
             ❌ 錯誤，重新辨識
           </button>
           <button
             onClick={onConfirmNext}
-            className="w-full px-6 py-4 rounded-2xl bg-sky-100 text-sky-800 font-semibold text-lg hover:bg-sky-200 shadow-md transition-transform hover:scale-105 active:scale-95"
+            className="w-full px-8 py-4 rounded-2xl bg-slate-200 text-slate-800 font-semibold text-lg hover:bg-slate-300 shadow-md transition-transform hover:scale-105 active:scale-95"
           >
             ➕ 正確，辨識下一個物品
           </button>
           <button
             onClick={onConfirmGoCart}
-            className="w-full px-6 py-4 rounded-2xl bg-green-600 text-white font-bold text-xl hover:bg-green-500 shadow-lg transition-transform hover:scale-105 active:scale-95"
+            className="w-full px-8 py-4 rounded-2xl bg-green-600 text-white font-bold text-lg hover:bg-green-500 shadow-lg transition-transform hover:scale-105 active:scale-95"
           >
             🛒 正確，進入購物車
           </button>
@@ -58,4 +58,3 @@ function StepItemConfirm({ currentItem, onRescan, onConfirmNext, onConfirmGoCart
 }
 
 export default StepItemConfirm;
-

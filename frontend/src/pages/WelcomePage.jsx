@@ -7,7 +7,7 @@ export default function WelcomePage() {
   const { setIsTribalMember } = useCheckout();
 
   return (
-    <div className="flex flex-col items-center justify-center h-full text-center space-y-8">
+    <div className="flex flex-col items-center justify-center flex-1 text-center space-y-8">
       <div className="text-6xl mb-2">👋</div>
       <h2 className="text-4xl font-bold text-slate-800">Welcome!</h2>
       <p className="text-xl text-slate-600">
