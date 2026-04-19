@@ -26,7 +26,7 @@ function StepAuth({
         </label>
         <input
           type="password"
-          className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+          className="w-full rounded-xl border border-slate-200 px-4 py-3 text-lg focus:outline-none focus:ring-2 focus:ring-green-500"
           placeholder="請輸入 4 位數密碼"
           value={authPassword}
           onChange={(e) => onChangePassword(e.target.value)}
@@ -40,10 +40,10 @@ function StepAuth({
             type="button"
             onClick={onFillDemoPassword}
             disabled={authLocked}
-            className={`flex-1 px-4 py-3 rounded-2xl text-lg font-semibold shadow-md ${
+            className={`flex-1 px-6 py-3 rounded-2xl text-base font-semibold shadow-md ${
               authLocked
                 ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
             }`}
           >
             🔁 回填示範密碼
@@ -52,7 +52,7 @@ function StepAuth({
             type="button"
             onClick={onConfirm}
             disabled={authLocked}
-            className={`flex-1 px-4 py-3 rounded-2xl text-lg font-bold shadow-md ${
+            className={`flex-1 px-6 py-3 rounded-2xl text-base font-bold shadow-md ${
               authLocked
                 ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
                 : 'bg-green-600 text-white hover:bg-green-500'
@@ -73,4 +73,3 @@ function StepAuth({
 }
 
 export default StepAuth;
-

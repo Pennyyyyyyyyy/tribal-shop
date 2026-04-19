@@ -53,7 +53,6 @@ function StepEvidenceRecord({ isSavingEvidence, onBackPayment, onSubmitEvidence 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // init mic stream lazily (only when start recording) OR you can pre-request here
   const ensureMicStream = async () => {
     if (micStream) return micStream;
     try {
@@ -94,7 +93,6 @@ function StepEvidenceRecord({ isSavingEvidence, onBackPayment, onSubmitEvidence 
     setMicError("");
     const stream = await ensureMicStream();
 
-    // Safari 相容性：MediaRecorder 不一定可用（若你主要跑 Chrome/Edge 通常 OK）
     if (!window.MediaRecorder) {
       setMicError("此瀏覽器不支援錄音（MediaRecorder）。建議使用 Chrome。");
       return;
@@ -136,11 +134,8 @@ function StepEvidenceRecord({ isSavingEvidence, onBackPayment, onSubmitEvidence 
   const handleSubmit = async () => {
     if (!photoDataUrl || !audioBlob) return;
 
-    // photoDataUrl -> Blob
     const photoBlob = await (await fetch(photoDataUrl)).blob();
 
-    // 交給 parent 或直接在這裡打 API 都可以
-    // 這裡示範用 callback：onSubmitEvidence(formData)
     const formData = new FormData();
     formData.append("photo", photoBlob, "evidence.jpg");
     formData.append("audio", audioBlob, "evidence_audio.webm");
@@ -175,7 +170,7 @@ function StepEvidenceRecord({ isSavingEvidence, onBackPayment, onSubmitEvidence 
             <button
               onClick={retakePhoto}
               disabled={isSavingEvidence}
-              className="px-6 py-4 rounded-2xl bg-slate-100 text-slate-700 text-lg font-semibold shadow-md hover:bg-slate-200 disabled:bg-slate-200 disabled:text-slate-400"
+              className="px-6 py-4 rounded-2xl bg-slate-200 text-slate-700 text-lg font-semibold shadow-md hover:bg-slate-300 disabled:bg-slate-200 disabled:text-slate-400"
             >
               🔄 重拍照片
             </button>
@@ -183,7 +178,7 @@ function StepEvidenceRecord({ isSavingEvidence, onBackPayment, onSubmitEvidence 
             <button
               onClick={takePhoto}
               disabled={isSavingEvidence}
-              className="px-6 py-4 rounded-2xl bg-indigo-600 text-white text-lg font-bold shadow-lg hover:bg-indigo-500 active:scale-95 transition-transform disabled:bg-slate-300 disabled:text-slate-600"
+              className="px-6 py-4 rounded-2xl bg-green-600 text-white text-lg font-bold shadow-lg hover:bg-green-500 active:scale-95 transition-transform disabled:bg-slate-300 disabled:text-slate-600"
             >
               📸 拍照
             </button>
@@ -202,7 +197,7 @@ function StepEvidenceRecord({ isSavingEvidence, onBackPayment, onSubmitEvidence 
             <button
               onClick={resetAudio}
               disabled={isSavingEvidence}
-              className="px-6 py-4 rounded-2xl bg-slate-100 text-slate-700 text-lg font-semibold shadow-md hover:bg-slate-200 disabled:bg-slate-200 disabled:text-slate-400"
+              className="px-6 py-4 rounded-2xl bg-slate-200 text-slate-700 text-lg font-semibold shadow-md hover:bg-slate-300 disabled:bg-slate-200 disabled:text-slate-400"
             >
               🔄 重錄音
             </button>
@@ -210,7 +205,7 @@ function StepEvidenceRecord({ isSavingEvidence, onBackPayment, onSubmitEvidence 
             <button
               onClick={startAudioRecording}
               disabled={isSavingEvidence}
-              className="px-6 py-4 rounded-2xl bg-emerald-600 text-white text-lg font-bold shadow-lg hover:bg-emerald-500 active:scale-95 transition-transform disabled:bg-slate-300 disabled:text-slate-600"
+              className="px-6 py-4 rounded-2xl bg-green-600 text-white text-lg font-bold shadow-lg hover:bg-green-500 active:scale-95 transition-transform disabled:bg-slate-300 disabled:text-slate-600"
             >
               🎙 開始錄音
             </button>
@@ -222,9 +217,9 @@ function StepEvidenceRecord({ isSavingEvidence, onBackPayment, onSubmitEvidence 
           <button
             onClick={handleSubmit}
             disabled={!canSubmit}
-            className={`px-6 py-4 rounded-2xl text-xl font-bold shadow-lg transition-transform ${
+            className={`px-8 py-4 rounded-2xl text-lg font-bold shadow-lg transition-transform ${
               canSubmit
-                ? "bg-slate-900 text-white hover:bg-slate-800 hover:scale-105 active:scale-95"
+                ? "bg-green-600 text-white hover:bg-green-500 hover:scale-105 active:scale-95"
                 : "bg-slate-300 text-slate-600 cursor-not-allowed"
             }`}
           >
@@ -234,7 +229,7 @@ function StepEvidenceRecord({ isSavingEvidence, onBackPayment, onSubmitEvidence 
           <button
             onClick={onBackPayment}
             disabled={isSavingEvidence || isRecordingAudio}
-            className="px-6 py-4 rounded-2xl bg-slate-100 text-slate-700 text-lg font-semibold shadow-md hover:bg-slate-200 disabled:bg-slate-200 disabled:text-slate-400"
+            className="px-6 py-4 rounded-2xl bg-slate-200 text-slate-700 text-lg font-semibold shadow-md hover:bg-slate-300 disabled:bg-slate-200 disabled:text-slate-400"
           >
             ⬅ 返回支付方式
           </button>
@@ -295,7 +290,7 @@ function StepEvidenceRecord({ isSavingEvidence, onBackPayment, onSubmitEvidence 
             </div>
           </div>
 
-          {/* audio playback (optional) */}
+          {/* audio playback */}
           {audioUrl && (
             <div className="absolute left-6 bottom-6 translate-y-[72px] w-[calc(100%-48px)]">
               <div className="bg-slate-900/80 rounded-2xl px-4 py-3">
@@ -313,71 +308,3 @@ function StepEvidenceRecord({ isSavingEvidence, onBackPayment, onSubmitEvidence 
 }
 
 export default StepEvidenceRecord;
-
-
-
-// import React from 'react';
-// import CameraView from '../CameraView';
-
-// function StepEvidenceRecord({
-//   isRecording,
-//   isSavingEvidence,
-//   onStartRecording,
-//   onBackPayment,
-// }) {
-//   return (
-//     <div className="flex flex-col md:flex-row w-full h-full gap-8">
-//       <div className="flex-1 flex flex-col justify-center space-y-4">
-//         <h2 className="text-3xl font-bold text-slate-800">請錄製影像存證</h2>
-//         <p className="text-lg text-slate-600">請以手拿商品對著鏡頭清楚說出：</p>
-//         <div className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 text-amber-800 text-lg">
-//           「我是 XXX，我買了一個 XX 和一個 XXX」
-//         </div>
-//         <p className="text-sm text-slate-500">
-//           為保障雙方權益，錄影僅用於對帳與存證，店家不會任意對外公開。
-//         </p>
-//         <div className="mt-4 flex flex-col sm:flex-row gap-4">
-//           <button
-//             onClick={onStartRecording}
-//             disabled={isRecording || isSavingEvidence}
-//             className={`flex-1 px-6 py-4 rounded-2xl text-xl font-bold shadow-lg transition-transform ${
-//               isRecording || isSavingEvidence
-//                 ? 'bg-slate-300 text-slate-600 cursor-not-allowed'
-//                 : 'bg-red-600 text-white hover:bg-red-500 hover:scale-105 active:scale-95'
-//             }`}
-//           >
-//             {isRecording
-//               ? '錄製中（模擬）...'
-//               : isSavingEvidence
-//               ? '後端存檔中（模擬）...'
-//               : '⏺ 開始錄製（模擬）'}
-//           </button>
-//           <button
-//             onClick={onBackPayment}
-//             disabled={isRecording || isSavingEvidence}
-//             className="flex-1 px-6 py-4 rounded-2xl bg-slate-100 text-slate-700 text-lg font-semibold shadow-md hover:bg-slate-200 disabled:bg-slate-200 disabled:text-slate-400"
-//           >
-//             ⬅ 返回支付方式
-//           </button>
-//         </div>
-//       </div>
-//       <div className="flex-1 flex items-center justify-center">
-//         <CameraView label="EVIDENCE CAM" status={isRecording ? 'REC' : 'STANDBY'}>
-//           {/* 上層提示文字 */}
-//           <div className="absolute inset-x-0 bottom-6 flex justify-center">
-//             <div className="bg-black/60 text-slate-100 px-6 py-3 rounded-2xl text-sm">
-//               {isSavingEvidence
-//                 ? '影像已錄製，正在存檔中（模擬）...'
-//                 : isRecording
-//                 ? '錄製中，請清楚說出內容（模擬）'
-//                 : '請確認畫面中看得到自己與商品，再按下「開始錄製」'}
-//             </div>
-//           </div>
-//         </CameraView>
-//       </div>
-//     </div>
-//   );
-// }
-
-// export default StepEvidenceRecord;
-

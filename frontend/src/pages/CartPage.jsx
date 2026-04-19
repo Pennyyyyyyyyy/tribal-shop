@@ -30,17 +30,15 @@ export default function CartPage() {
             {cart.map((item) => (
               <div
                 key={item.id}
-                className="flex items-center justify-between bg-slate-50 rounded-2xl px-4 py-4 border border-slate-100"
+                className="grid grid-cols-[auto_1fr_auto_100px] items-center gap-4 bg-slate-50 rounded-2xl px-4 py-4 border border-slate-100"
               >
-                <div className="flex items-center gap-4 min-w-0">
-                  <div className="text-3xl shrink-0">{item.image}</div>
-                  <div className="min-w-0">
-                    <div className="text-lg font-semibold text-slate-800 truncate">
-                      {item.name}
-                    </div>
-                    <div className="text-xs text-slate-500">
-                      單價：${item.price}
-                    </div>
+                <div className="text-3xl w-10 text-center shrink-0">{item.image}</div>
+                <div className="min-w-0">
+                  <div className="text-lg font-semibold text-slate-800 truncate">
+                    {item.name}
+                  </div>
+                  <div className="text-xs text-slate-500">
+                    單價：NT${item.price}
                   </div>
                 </div>
 
@@ -71,9 +69,9 @@ export default function CartPage() {
                   </button>
                 </div>
 
-                <div className="text-right w-28">
+                <div className="text-right">
                   <div className="text-lg font-bold text-green-700">
-                    ${item.price * item.quantity}
+                    NT${item.price * item.quantity}
                   </div>
                   <div className="text-xs text-slate-400">小計</div>
                 </div>
@@ -87,7 +85,7 @@ export default function CartPage() {
         {cart.length > 0 ? (
           <button
             onClick={() => navigate("/scan")}
-            className="px-5 py-3 rounded-2xl bg-sky-100 text-sky-800 text-base font-semibold hover:bg-sky-200 transition"
+            className="px-5 py-3 rounded-2xl bg-slate-200 text-slate-700 text-base font-semibold hover:bg-slate-300 transition"
           >
             繼續辨識商品
           </button>
@@ -97,7 +95,7 @@ export default function CartPage() {
         <div className="text-right flex flex-col items-end gap-4">
           <div className="text-[27.2px] font-bold text-slate-800">
             <span className="text-slate-800">總金額：</span>
-            <span className="text-green-700">${totalAmount}</span>
+            <span className="text-green-700">NT${totalAmount}</span>
           </div>
 
           <div className="flex gap-4">
@@ -110,7 +108,7 @@ export default function CartPage() {
               className={`px-10 py-5 rounded-2xl text-xl font-bold shadow-lg transition-transform hover:scale-105 active:scale-95 whitespace-nowrap ${
                 cart.length === 0
                   ? "bg-slate-300 text-slate-500 cursor-not-allowed"
-                  : "bg-sky-600 text-white hover:bg-sky-500"
+                  : "bg-green-600 text-white hover:bg-green-500"
               }`}
             >
               🛒 結帳

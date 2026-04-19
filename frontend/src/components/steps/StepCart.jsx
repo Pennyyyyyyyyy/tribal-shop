@@ -11,7 +11,7 @@ function StepCart({ cart, totalAmount, onGoScan, onCheckout }) {
         {!isEmpty && (
           <button
             onClick={onGoScan}
-            className="px-4 py-2 rounded-xl bg-sky-100 text-sky-800 text-sm font-semibold hover:bg-sky-200"
+            className="px-6 py-3 rounded-2xl bg-slate-200 text-slate-700 text-base font-semibold hover:bg-slate-300 shadow-md"
           >
             ➕ 繼續辨識商品
           </button>
@@ -24,34 +24,33 @@ function StepCart({ cart, totalAmount, onGoScan, onCheckout }) {
             <div className="text-lg">目前購物車是空的，請先辨識商品。</div>
             <button
               onClick={onGoScan}
-              className="mt-2 px-6 py-3 rounded-2xl bg-green-600 text-white font-semibold hover:bg-green-500 shadow-md"
+              className="mt-2 px-8 py-4 rounded-2xl bg-green-600 text-white font-bold text-lg hover:bg-green-500 shadow-lg"
             >
               開始辨識商品
             </button>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-3">
+            {/* 表頭 */}
+            <div className="grid grid-cols-[auto_1fr_80px_100px] items-center gap-4 px-4 py-2 text-sm font-semibold text-slate-400">
+              <div className="w-10" />
+              <div>商品名稱</div>
+              <div className="text-center">數量</div>
+              <div className="text-right">小計</div>
+            </div>
             {cart.map((item) => (
               <div
                 key={item.id}
-                className="flex items-center justify-between bg-slate-50 rounded-2xl px-4 py-3 border border-slate-100"
+                className="grid grid-cols-[auto_1fr_80px_100px] items-center gap-4 bg-slate-50 rounded-2xl px-4 py-3 border border-slate-100"
               >
-                <div className="flex items-center gap-4">
-                  <div className="text-3xl">{item.image}</div>
-                  <div>
-                    <div className="text-lg font-semibold text-slate-800">
-                      {item.name}
-                    </div>
-                    <div className="text-sm text-slate-500">
-                      數量：{item.quantity}
-                    </div>
-                  </div>
+                <div className="text-3xl w-10 text-center">{item.image}</div>
+                <div>
+                  <div className="text-lg font-semibold text-slate-800">{item.name}</div>
+                  <div className="text-xs text-slate-400">單價 NT${item.price}</div>
                 </div>
-                <div className="text-right">
-                  <div className="text-lg font-bold text-green-700">
-                    ${item.price * item.quantity}
-                  </div>
-                  <div className="text-xs text-slate-400">單價：${item.price}</div>
+                <div className="text-center text-lg text-slate-700">{item.quantity}</div>
+                <div className="text-right text-lg font-bold text-green-700">
+                  NT${item.price * item.quantity}
                 </div>
               </div>
             ))}
@@ -61,12 +60,12 @@ function StepCart({ cart, totalAmount, onGoScan, onCheckout }) {
       <div className="mt-4 flex items-center justify-between">
         <div className="text-xl font-semibold text-slate-800">
           總金額：
-          <span className="text-2xl text-green-700">${totalAmount}</span>
+          <span className="text-2xl text-green-700 ml-1">NT${totalAmount}</span>
         </div>
         <button
           disabled={isEmpty}
           onClick={onCheckout}
-          className={`px-8 py-4 rounded-2xl text-xl font-bold shadow-lg transition-transform ${
+          className={`px-8 py-4 rounded-2xl text-lg font-bold shadow-lg transition-transform ${
             isEmpty
               ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
               : 'bg-green-600 text-white hover:bg-green-500 hover:scale-105 active:scale-95'
@@ -80,4 +79,3 @@ function StepCart({ cart, totalAmount, onGoScan, onCheckout }) {
 }
 
 export default StepCart;
-
