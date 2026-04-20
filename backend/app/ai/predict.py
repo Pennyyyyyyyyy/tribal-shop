@@ -57,24 +57,31 @@ transform = transforms.Compose([
 # =============================
 
 def predict(image):
-
     image = image.convert("RGB")
-
     image = transform(image).unsqueeze(0).to(device)
 
     with torch.no_grad():
         output = model(image)
-
+        # 取得機率值
         probs = torch.softmax(output, dim=1)
 
-        confidence, pred = torch.max(probs, 1)
+        # 取得前三個最高機率的值與索引
+        # k=3 代表取前三名
+        top_probs, top_indices = torch.topk(probs, k=3, dim=1)
 
-    label = id_to_label[pred.item()]
+    # 整理成 list 格式回傳
+    results = []
+    for i in range(3):
+        confidence = top_probs[0][i].item()
+        label_idx = top_indices[0][i].item()
+        label = id_to_label[label_idx]
+        
+        results.append({
+            "class": label,
+            "confidence": float(confidence)
+        })
 
-    return {
-        "class": label,
-        "confidence": float(confidence.item())
-    }
+    return results
 
 
 # =============================

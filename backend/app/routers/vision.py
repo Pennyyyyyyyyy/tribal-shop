@@ -40,31 +40,33 @@ LABEL_MAP = {
 
 @router.post("/detect-product")
 async def detect_product(image: UploadFile = File(...)):
-    """接收一張圖片，回傳辨識到的商品資訊 + 信心度。"""
+    """接收一張圖片，回傳前三名辨識到的商品資訊（Top-3）。"""
 
     contents = await image.read()
     pil_image = Image.open(io.BytesIO(contents)).convert("RGB")
 
-    result = predict(pil_image)
-    label = result["class"]
-    confidence = result["confidence"]
-
-    # 對應到中文商品
-    mapped = LABEL_MAP.get(label, {"name": label, "price": 0, "image": "📦"})
-    product_name = mapped["name"]
-
-    # 嘗試從資料庫取得正式的價格與庫存
+    # 現在 predict 會回傳一個 list，包含 3 個 dict
+    top_results = predict(pil_image)
+    
+    final_products = []
     conn = get_db()
-    db_row = conn.execute(
-        "SELECT id, name, price, stock, image_url FROM products WHERE name = ?",
-        (product_name,),
-    ).fetchone()
-    conn.close()
 
-    if db_row:
-        return {
-            "status": "success",
-            "product": {
+    for res in top_results:
+        label = res["class"]
+        confidence = res["confidence"]
+
+        # 1. 取得 mapping 資訊
+        mapped = LABEL_MAP.get(label, {"name": label, "price": 0, "image": "📦"})
+        product_name = mapped["name"]
+
+        # 2. 嘗試從資料庫取得資訊
+        db_row = conn.execute(
+            "SELECT id, name, price, stock, image_url FROM products WHERE name = ?",
+            (product_name,),
+        ).fetchone()
+
+        if db_row:
+            product_info = {
                 "id": db_row["id"],
                 "name": db_row["name"],
                 "price": db_row["price"],
@@ -72,17 +74,22 @@ async def detect_product(image: UploadFile = File(...)):
                 "image": mapped["image"],
                 "image_url": db_row["image_url"],
                 "confidence": confidence,
-            },
-        }
+            }
+        else:
+            # 資料庫沒有 → 使用 mapping 預設值
+            product_info = {
+                "id": abs(hash(label)) % 100000,
+                "name": product_name,
+                "price": mapped["price"],
+                "image": mapped["image"],
+                "confidence": confidence,
+            }
+        
+        final_products.append(product_info)
 
-    # 資料庫沒有 → 使用 mapping 預設值
+    conn.close()
+
     return {
         "status": "success",
-        "product": {
-            "id": abs(hash(label)) % 100000,
-            "name": product_name,
-            "price": mapped["price"],
-            "image": mapped["image"],
-            "confidence": confidence,
-        },
+        "predictions": final_products  # 回傳包含三個預測結果的列表
     }
