@@ -4,7 +4,8 @@ import { useCheckout } from "../context/CheckoutContext";
 
 export default function PaymentPage() {
   const navigate = useNavigate();
-  const { totalAmount, isTribalMember, setPaymentMethod, resetAll } = useCheckout();
+  const { totalAmount, isTribalMember, setPaymentMethod, resetAll } =
+    useCheckout();
 
   if (isTribalMember) {
     return (
@@ -33,7 +34,7 @@ export default function PaymentPage() {
 
   return (
     <div className="flex flex-col items-center justify-center h-full space-y-8 text-center">
-      <h2 className="text-3xl font-bold text-slate-800">Line Pay 結帳</h2>
+      <h2 className="text-3xl font-bold text-slate-800">請將現金放到旁邊的零錢罐</h2>
       <p className="text-lg text-slate-600">
         本次消費金額：
         <span className="text-2xl text-green-700 font-semibold">
@@ -44,21 +45,20 @@ export default function PaymentPage() {
       <button
         data-testid="btn-linepay"
         onClick={() => {
-          setPaymentMethod("Linepay");
-          alert("模擬：已轉 Linepay Money 給飛鼠");
+          setPaymentMethod("Cash");
           resetAll();
           navigate("/");
         }}
         className="px-10 py-5 rounded-2xl bg-emerald-600 text-white text-xl font-bold shadow-lg hover:bg-emerald-500 transition-transform hover:scale-105 active:scale-95"
       >
-        LinePay 付款
+        我已投入現金
       </button>
 
       <button
-        onClick={() => navigate("/cart")}
+        onClick={() => navigate("/evidence")}
         className="mt-4 text-slate-500 underline text-sm"
       >
-        ⬅ 返回購物車
+        ⬅ 返回拍照存證
       </button>
     </div>
   );

@@ -1,6 +1,7 @@
 import React from "react";
 import { Routes, Route } from "react-router-dom";
 import { CheckoutProvider } from "./context/CheckoutContext";
+import { AnnouncementProvider } from "./context/AnnouncementContext";
 import Layout from "./components/Layout";
 import WelcomePage from "./pages/WelcomePage";
 import AuthPage from "./pages/AuthPage";
@@ -15,19 +16,21 @@ import ProductSelectPage from "./pages/ProductSelectPage";
 function App() {
   return (
     <CheckoutProvider>
-      <Routes>
-        <Route element={<Layout />}>
-          <Route path="/" element={<WelcomePage />} />
-          <Route path="/auth" element={<AuthPage />} />
-          <Route path="/instruction" element={<InstructionPage />} />
-          <Route path="/scan" element={<ScanPage />} />
-          <Route path="/products" element={<ProductSelectPage />} />
-          <Route path="/cart" element={<CartPage />} />
-          <Route path="/payment" element={<PaymentPage />} />
-          <Route path="/evidence" element={<EvidencePage />} />
-          <Route path="/complete" element={<CompletePage />} />
-        </Route>
-      </Routes>
+      <AnnouncementProvider>
+        <Routes>
+          <Route element={<Layout />}>
+            <Route path="/" element={<WelcomePage />} />
+            <Route path="/auth" element={<AuthPage />} />
+            <Route path="/instruction" element={<InstructionPage />} />
+            <Route path="/scan" element={<ScanPage />} />
+            <Route path="/products" element={<ProductSelectPage />} />
+            <Route path="/cart" element={<CartPage />} />
+            <Route path="/payment" element={<PaymentPage />} />
+            <Route path="/evidence" element={<EvidencePage />} />
+            <Route path="/complete" element={<CompletePage />} />
+          </Route>
+        </Routes>
+      </AnnouncementProvider>
     </CheckoutProvider>
   );
 }

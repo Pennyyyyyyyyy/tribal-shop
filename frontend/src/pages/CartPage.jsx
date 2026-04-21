@@ -1,19 +1,61 @@
-import React from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCheckout } from "../context/CheckoutContext";
+import RecipePopup from "../components/RecipePopup";
+import { RECIPES, getMakauCartItem, detectCategory } from "../data/recipes";
+
+function pickPopupMode(cart) {
+  const { hasCoffee, hasTea, hasNoodle, hasMakau } = detectCategory(cart);
+  const matched = [];
+  if (hasCoffee) matched.push(RECIPES.coffee);
+  if (hasTea) matched.push(RECIPES.tea);
+  if (hasNoodle) matched.push(RECIPES.noodle);
+
+  if (matched.length === 0) return { mode: "educate", recipe: null };
+  if (hasMakau) return { mode: "celebrate", recipe: matched[0] };
+  return { mode: "promote", recipe: matched[0] };
+}
 
 export default function CartPage() {
   const navigate = useNavigate();
-  const { cart, increaseQty, decreaseQty, totalAmount, isTribalMember } =
+  const { cart, increaseQty, decreaseQty, totalAmount, isTribalMember, addItemToCart } =
     useCheckout();
 
+  const [popup, setPopup] = useState({ mode: null, recipe: null });
+
+  const closePopup = () => setPopup({ mode: null, recipe: null });
+
+  const handleCheckoutClick = () => {
+    if (cart.length === 0) return;
+    if (isTribalMember) {
+      navigate("/evidence");
+      return;
+    }
+    setPopup(pickPopupMode(cart));
+  };
+
+  const handleSkip = () => {
+    closePopup();
+    navigate("/evidence");
+  };
+
+  const handleAddMakau = () => {
+    addItemToCart(getMakauCartItem());
+    closePopup();
+  };
+
+  const handleAddProducts = (products) => {
+    products.forEach((p) => addItemToCart(p));
+    closePopup();
+  };
+
   return (
-    <div className="flex flex-col w-full h-full">
+    <div className="flex flex-col w-full flex-1 min-h-[60vh]">
       <div className="mb-4">
         <h2 className="text-3xl font-bold text-slate-800">購物車清單</h2>
       </div>
 
-      <div className="flex-1 bg-white rounded-3xl shadow-inner border border-slate-100 p-6 overflow-auto">
+      <div className="flex-1 bg-white rounded-3xl shadow-inner border border-slate-100 p-6 overflow-auto min-h-0">
         {cart.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-slate-500 space-y-3">
             <div className="text-5xl">🛒</div>
@@ -32,7 +74,24 @@ export default function CartPage() {
                 key={item.id}
                 className="grid grid-cols-[auto_1fr_auto_100px] items-center gap-4 bg-slate-50 rounded-2xl px-4 py-4 border border-slate-100"
               >
-                <div className="text-3xl w-10 text-center shrink-0">{item.image}</div>
+                <div className="w-16 h-16 shrink-0 rounded-xl bg-white border border-slate-200 flex items-center justify-center overflow-hidden">
+                  {item.image_url ? (
+                    <img
+                      src={
+                        item.image_url.startsWith("http")
+                          ? item.image_url
+                          : item.image_url.replace(
+                              "/uploads/product_photos/",
+                              "/photo/"
+                            )
+                      }
+                      alt={item.name}
+                      className="w-full h-full object-contain"
+                    />
+                  ) : (
+                    <span className="text-3xl">{item.image}</span>
+                  )}
+                </div>
                 <div className="min-w-0">
                   <div className="text-lg font-semibold text-slate-800 truncate">
                     {item.name}
@@ -102,9 +161,7 @@ export default function CartPage() {
             <button
               data-testid="btn-checkout"
               disabled={cart.length === 0}
-              onClick={() => {
-                navigate(isTribalMember ? "/evidence" : "/payment");
-              }}
+              onClick={handleCheckoutClick}
               className={`px-10 py-5 rounded-2xl text-xl font-bold shadow-lg transition-transform hover:scale-105 active:scale-95 whitespace-nowrap ${
                 cart.length === 0
                   ? "bg-slate-300 text-slate-500 cursor-not-allowed"
@@ -116,6 +173,15 @@ export default function CartPage() {
           </div>
         </div>
       </div>
+
+      <RecipePopup
+        mode={popup.mode}
+        recipe={popup.recipe}
+        onAddMakau={handleAddMakau}
+        onAddProducts={handleAddProducts}
+        onSkip={handleSkip}
+        onClose={closePopup}
+      />
     </div>
   );
 }

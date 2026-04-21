@@ -11,7 +11,7 @@ export default function WelcomePage() {
       <div className="text-6xl mb-2">👋</div>
       <h2 className="text-4xl font-bold text-slate-800">Welcome!</h2>
       <p className="text-xl text-slate-600">
-        歡迎來到部落誠實商店自助結帳系統
+        歡迎來到飛鼠商店自助結帳系統
       </p>
 
       <div className="flex flex-col md:flex-row gap-6 mt-6">

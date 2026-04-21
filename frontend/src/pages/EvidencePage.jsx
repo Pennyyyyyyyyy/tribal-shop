@@ -9,7 +9,8 @@ const isE2E =
 
 export default function EvidencePage() {
   const navigate = useNavigate();
-  const { cart, totalAmount, API_BASE_URL, resetAll } = useCheckout();
+  const { cart, totalAmount, API_BASE_URL, resetAll, isTribalMember } =
+    useCheckout();
 
   const evidenceVideoRef = useRef(null);
   const evidenceCanvasRef = useRef(null);
@@ -64,8 +65,12 @@ export default function EvidencePage() {
         throw new Error("上傳存證失敗");
       }
 
-      resetAll();
-      navigate("/");
+      if (isTribalMember) {
+        resetAll();
+        navigate("/");
+      } else {
+        navigate("/payment");
+      }
     } catch (error) {
       console.error("上傳存證出錯:", error);
       alert("上傳存證失敗，請重試");

@@ -1,13 +1,20 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import AnnouncementPopup from "../components/AnnouncementPopup";
+import { useAnnouncement } from "../context/AnnouncementContext";
 
 export default function AuthPage() {
   const navigate = useNavigate();
+  const { openPopup, dismissed } = useAnnouncement();
 
   const [authPassword, setAuthPassword] = useState("");
   const [authErrorMsg, setAuthErrorMsg] = useState("");
   const [authErrorCount, setAuthErrorCount] = useState(0);
   const [authLocked, setAuthLocked] = useState(false);
+
+  useEffect(() => {
+    if (!dismissed) openPopup();
+  }, [dismissed, openPopup]);
 
   const handleAuthConfirm = () => {
     if (authLocked) return;
@@ -44,6 +51,8 @@ export default function AuthPage() {
 
   return (
     <div className="w-full h-full relative">
+      <AnnouncementPopup />
+
       <button
         type="button"
         onClick={() => navigate("/")}

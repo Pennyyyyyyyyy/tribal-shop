@@ -1,45 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCheckout } from "../context/CheckoutContext";
-
-const CATEGORIES = [
-  { key: "all", label: "全部" },
-  { key: "snack", label: "零食" },
-  { key: "noodle", label: "泡麵" },
-];
-
-const CATALOG = [
-  {
-    name: "多力多滋（芝士）",
-    price: 49,
-    category: "snack",
-    photo: "/photo/多力多滋（芝士）.png",
-  },
-  {
-    name: "多力多滋（黃金起司）",
-    price: 49,
-    category: "snack",
-    photo: "/photo/多力多滋（黃金起司）.png",
-  },
-  {
-    name: "統一牛肉麵",
-    price: 32,
-    category: "noodle",
-    photo: "/photo/統一牛肉麵.png",
-  },
-  {
-    name: "統一米粉（肉燥）",
-    price: 30,
-    category: "noodle",
-    photo: "/photo/統一米粉（肉燥）.png",
-  },
-  {
-    name: "維力炸醬麵",
-    price: 30,
-    category: "noodle",
-    photo: "/photo/維力炸醬麵.png",
-  },
-];
+import { CATALOG, CATEGORIES, catalogToCartItem } from "../data/catalog";
 
 export default function ProductSelectPage() {
   const navigate = useNavigate();
@@ -61,13 +23,7 @@ export default function ProductSelectPage() {
   };
 
   const handleAdd = (item) => {
-    addItemToCart({
-      id: Math.abs(hashCode(item.name)) % 100000,
-      name: item.name,
-      price: item.price,
-      image_url: item.photo,
-      quantity: getQty(item.name),
-    });
+    addItemToCart(catalogToCartItem(item, getQty(item.name)));
     setQuantities((prev) => ({ ...prev, [item.name]: 1 }));
   };
 
@@ -83,8 +39,8 @@ export default function ProductSelectPage() {
             key={cat.key}
             onClick={() => setActiveCategory(cat.key)}
             className={`w-full text-left px-4 py-3 rounded-2xl text-base font-semibold transition ${activeCategory === cat.key
-                ? "bg-emerald-600 text-white shadow-md"
-                : "bg-white text-slate-700 hover:bg-slate-100"
+              ? "bg-emerald-600 text-white shadow-md"
+              : "bg-white text-slate-700 hover:bg-slate-100"
               }`}
           >
             {cat.label}
@@ -108,13 +64,14 @@ export default function ProductSelectPage() {
             {filtered.map((item) => (
               <div
                 key={item.name}
+                data-testid={`product-card-${item.name}`}
                 className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col"
               >
-                <div className="aspect-[4/3] bg-slate-50 flex items-center justify-center p-2">
+                <div className="aspect-square bg-slate-50 flex items-center justify-center p-3">
                   <img
                     src={item.photo}
                     alt={item.name}
-                    className="w-full h-full object-contain"
+                    className="max-w-full max-h-full object-contain mx-auto"
                   />
                 </div>
 
@@ -145,6 +102,7 @@ export default function ProductSelectPage() {
                   </div>
 
                   <button
+                    data-testid={`btn-add-${item.name}`}
                     onClick={() => handleAdd(item)}
                     className="w-full px-3 py-2 rounded-xl bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-500 shadow-md active:scale-95 transition"
                   >
@@ -174,13 +132,4 @@ export default function ProductSelectPage() {
       </div>
     </div>
   );
-}
-
-function hashCode(str) {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    hash = (hash << 5) - hash + str.charCodeAt(i);
-    hash |= 0;
-  }
-  return hash;
 }
