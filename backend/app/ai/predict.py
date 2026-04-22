@@ -1,97 +1,62 @@
 import torch
-import json
+import torch.nn as nn
 from PIL import Image
 from torchvision import transforms
-
 from app.ai.model import load_model
 
-
 # =============================
-# PATH
+# PATH & CONFIG
 # =============================
-
 MODEL_PATH = "app/ai/best_efficientnet_model.pt"
-LABELS_JSON = "app/ai/labels.json"
-
-
-# =============================
-# DEVICE
-# =============================
-
+# 向量檢索不再需要 labels.json，因為對應關係改由資料庫管理
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+# =============================
+# LOAD & CONVERT MODEL (關鍵修改)
+# =============================
+# 先載入原本的模型 (22類)
+raw_model = load_model(22, MODEL_PATH, device)
+
+def get_feature_extractor(model):
+    """
+    精準移除最後一層。
+    注意：EfficientNet 的 classifier 是一個 Sequential，
+    裡面包含 Dropout(0) 和 Linear(1280, 22)。
+    我們只需要拿掉最後的 Linear。
+    """
+    # 將最後的分類層替換為 Identity，保留 1280 維度輸出
+    model.classifier = nn.Identity() 
+    model.eval()
+    return model
+
+# 建立特徵提取專用模型
+vector_model = get_feature_extractor(raw_model)
 
 # =============================
-# LOAD LABELS
+# IMAGE TRANSFORM (加入 Normalize)
 # =============================
-
-with open(LABELS_JSON, "r", encoding="utf-8") as f:
-    labels = json.load(f)
-
-id_to_label = {i: label for i, label in enumerate(labels)}
-
-num_classes = len(labels)
-
-print("Loaded classes:", num_classes)
-
-
-# =============================
-# LOAD MODEL
-# =============================
-
-model = load_model(num_classes, MODEL_PATH, device)
-
-
-# =============================
-# IMAGE TRANSFORM
-# =============================
-
 transform = transforms.Compose([
     transforms.Resize((224, 224)),
     transforms.ToTensor(),
+    # 建議加入標準正規化，能讓特徵提取更精準（這是 ImageNet 預訓練模型的標準做法）
+    transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
 ])
 
-
 # =============================
-# PREDICT FUNCTION
+# GET EMBEDDING FUNCTION
 # =============================
+def get_embedding(image):
+    """
+    接收 PIL Image，回傳 1280 維度的 Python List。
+    """
+    if image.mode != "RGB":
+        image = image.convert("RGB")
 
-def predict(image):
-    image = image.convert("RGB")
-    image = transform(image).unsqueeze(0).to(device)
-
+    input_tensor = transform(image).unsqueeze(0).to(device)
+    
     with torch.no_grad():
-        output = model(image)
-        # 取得機率值
-        probs = torch.softmax(output, dim=1)
-
-        # 取得前三個最高機率的值與索引
-        # k=3 代表取前三名
-        top_probs, top_indices = torch.topk(probs, k=3, dim=1)
-
-    # 整理成 list 格式回傳
-    results = []
-    for i in range(3):
-        confidence = top_probs[0][i].item()
-        label_idx = top_indices[0][i].item()
-        label = id_to_label[label_idx]
-        
-        results.append({
-            "class": label,
-            "confidence": float(confidence)
-        })
-
-    return results
-
-
-# =============================
-# TEST
-# =============================
-
-if __name__ == "__main__":
-
-    test_img = "test.jpg"
-
-    result = predict(test_img)
-
-    print(result)
+        # 得到形狀為 [1, 1280] 的張量
+        embedding = vector_model(input_tensor)
+    
+    # 轉為 1D list 方便 Supabase 的 pgvector 讀取
+    return embedding.cpu().numpy().flatten().tolist()
