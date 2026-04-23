@@ -15,8 +15,17 @@ load_dotenv(os.path.join(os.path.dirname(__file__), "..", "..", ".env"))
 
 _config = None
 _LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN", "")
+_SERVER_BASE_URL = os.getenv("SERVER_BASE_URL", "").rstrip("/")
 
 FREEIMAGE_API_KEY = "6d207e02198a847aa98d0a2a901485a5"
+
+
+def _build_public_url(image_path: str) -> str | None:
+    """有設 SERVER_BASE_URL 就直接組公開網址（走 backend 的 /uploads 靜態檔），不再依賴外部圖床。"""
+    if not _SERVER_BASE_URL or not image_path:
+        return None
+    rel = image_path.replace("\\", "/").lstrip("./").lstrip("/")
+    return f"{_SERVER_BASE_URL}/{rel}"
 
 
 def _get_api() -> MessagingApi | None:
@@ -68,7 +77,8 @@ def send_line_notification(message: str, image_path: str | None = None):
     messages = [TextMessage(text=message)]
 
     if image_path:
-        image_url = _upload_image(image_path)
+        # 優先用 SERVER_BASE_URL（穩定、零延遲），沒設才 fallback 走 freeimage 圖床
+        image_url = _build_public_url(image_path) or _upload_image(image_path)
         if image_url:
             messages.append(
                 ImageMessage(
