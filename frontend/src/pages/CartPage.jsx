@@ -2,7 +2,8 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCheckout } from "../context/CheckoutContext";
 import RecipePopup from "../components/RecipePopup";
-import { RECIPES, getMakauCartItem, detectCategory } from "../data/recipes";
+import { RECIPES, detectCategory } from "../data/recipes";
+import { getMakauCartItem } from "../data/catalog";
 import { useVoiceCommand } from "../hooks/useVoiceCommand";
 import { useVoiceInstruction } from "../hooks/useVoiceInstruction";
 
@@ -61,8 +62,8 @@ export default function CartPage() {
 
   // 語音指示
   useVoiceInstruction(
-    cart.length > 0 
-      ? `購物車目前有 ${cart.length} 項商品，總金額為 ${totalAmount} 元。確認無誤請說出：結帳。或點選繼續辨識。` 
+    cart.length > 0
+      ? `購物車目前有 ${cart.length} 項商品，總金額為 ${totalAmount} 元。確認無誤請說出：結帳。或點選繼續辨識。`
       : "購物車目前是空的，請點選繼續辨識商品。",
     [cart.length, totalAmount]
   );
@@ -105,9 +106,9 @@ export default function CartPage() {
                         item.image_url.startsWith("http")
                           ? item.image_url
                           : item.image_url.replace(
-                              "/uploads/product_photos/",
-                              "/photo/"
-                            )
+                            "/uploads/product_photos/",
+                            "/photo/"
+                          )
                       }
                       alt={item.name}
                       className="w-full h-full object-contain"
@@ -186,11 +187,10 @@ export default function CartPage() {
               data-testid="btn-checkout"
               disabled={cart.length === 0}
               onClick={handleCheckoutClick}
-              className={`px-10 py-5 rounded-2xl text-xl font-bold shadow-lg transition-transform hover:scale-105 active:scale-95 whitespace-nowrap ${
-                cart.length === 0
+              className={`px-10 py-5 rounded-2xl text-xl font-bold shadow-lg transition-transform hover:scale-105 active:scale-95 whitespace-nowrap ${cart.length === 0
                   ? "bg-slate-300 text-slate-500 cursor-not-allowed"
                   : "bg-green-600 text-white hover:bg-green-500"
-              }`}
+                }`}
             >
               🛒 結帳
             </button>
