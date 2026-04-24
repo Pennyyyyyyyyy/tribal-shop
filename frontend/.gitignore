@@ -22,3 +22,23 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Python bytecode 
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Python virtual environment 
+venv/
+.venv/
+env/
+
+# SQLite database
+*.sqlite3
+
+**/__pycache__/
+*.pyc
+backend/tribal_shop.db
+backend/uploads/images/
+backend/.env

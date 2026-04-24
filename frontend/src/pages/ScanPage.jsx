@@ -2,6 +2,7 @@ import React, { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCheckout } from "../context/CheckoutContext";
 import CameraView from "../components/CameraView";
+import { useVoiceCommand } from "../hooks/useVoiceCommand";
 
 const isE2E = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("e2e") === "true";
 
@@ -68,6 +69,15 @@ export default function ScanPage() {
     setScannedResults([]);
     setScanPhase("IDLE");
   };
+
+  // 註冊語音指令
+  useVoiceCommand({
+    "拍照": () => { if (scanPhase !== "SCANNING") doScan(); },
+    "辨識": () => { if (scanPhase !== "SCANNING") doScan(); },
+    "重新辨識": () => { if (scanPhase === "RESULT") doScan(); },
+    "結帳": () => { if (cart.length > 0) navigate("/cart"); },
+    "查看清單": () => { if (cart.length > 0) navigate("/cart"); }
+  });
 
   return (
     <div className="w-full flex-1 min-h-0 flex flex-col bg-slate-50 overflow-hidden">
