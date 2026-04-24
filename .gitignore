@@ -9,5 +9,4 @@ backend/app/routers/__pycache__/vision.cpython-314.pyc
 **/__pycache__/
 *.pyc
 backend/.env
-backend/*.db
 backend/uploads/images/
