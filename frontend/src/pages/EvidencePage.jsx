@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useCheckout } from "../context/CheckoutContext";
 import CameraView from "../components/CameraView";
 import { useVoiceCommand } from "../hooks/useVoiceCommand";
+import { useVoiceInstruction } from "../hooks/useVoiceInstruction";
 
 const isE2E =
   typeof window !== "undefined" &&
@@ -94,9 +95,16 @@ export default function EvidencePage() {
   // 註冊語音指令
   useVoiceCommand({
     "拍照": () => { if (camReady && !isSavingEvidence) takeEvidencePhoto(); },
-    "重拍": () => { if (!isSavingEvidence) setEvidenceSnapshot(null); },
     "送出": () => { if (evidenceSnapshot && !isSavingEvidence) submitEvidence(); },
   });
+
+  // 語音指示
+  useVoiceInstruction(
+    evidenceSnapshot 
+      ? "已完成拍照，確認無誤請說出：送出，或點選重拍" 
+      : "請把人與商品一起拍進畫面，準備好後請說：拍照",
+    [evidenceSnapshot]
+  );
 
   return (
     <div className="flex flex-col md:flex-row w-full h-full gap-8">

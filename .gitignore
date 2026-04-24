@@ -6,3 +6,8 @@ backend/__pycache__/main.cpython-314.pyc
 backend/__pycache__/main.cpython-314.pyc
 backend/app/ai/sync_local_to_supabase.py
 backend/app/routers/__pycache__/vision.cpython-314.pyc
+**/__pycache__/
+*.pyc
+backend/.env
+backend/*.db
+backend/uploads/images/
