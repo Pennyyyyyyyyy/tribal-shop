@@ -1,5 +1,4 @@
-// TODO: 之後改為從後端抓取
-// 食譜資料：三種「馬告 × 商品」推薦
+// 食譜資料：三種「馬告 × 商品」推薦（前端靜態文案／圖）
 export const RECIPES = {
   coffee: {
     key: "coffee",
@@ -42,11 +41,4 @@ export function detectCategory(cart) {
     hasNoodle: names.some((n) => /麵|米粉/.test(n)),
     hasMakau: names.some((n) => n.includes("馬告")),
   };
-}
-
-import { catalogToCartItem, findProduct } from "./catalog";
-
-// 馬告商品定義（加入購物車用）
-export function getMakauCartItem() {
-  return catalogToCartItem(findProduct("馬告（山胡椒）"));
 }

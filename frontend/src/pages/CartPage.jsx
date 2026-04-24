@@ -2,7 +2,8 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCheckout } from "../context/CheckoutContext";
 import RecipePopup from "../components/RecipePopup";
-import { RECIPES, getMakauCartItem, detectCategory } from "../data/recipes";
+import { RECIPES, detectCategory } from "../data/recipes";
+import { getMakauCartItem } from "../data/catalog";
 
 function pickPopupMode(cart) {
   const { hasCoffee, hasTea, hasNoodle, hasMakau } = detectCategory(cart);
@@ -18,8 +19,15 @@ function pickPopupMode(cart) {
 
 export default function CartPage() {
   const navigate = useNavigate();
-  const { cart, increaseQty, decreaseQty, totalAmount, isTribalMember, addItemToCart } =
-    useCheckout();
+  const {
+    cart,
+    increaseQty,
+    decreaseQty,
+    totalAmount,
+    isTribalMember,
+    addItemToCart,
+    products,
+  } = useCheckout();
 
   const [popup, setPopup] = useState({ mode: null, recipe: null });
 
@@ -40,7 +48,8 @@ export default function CartPage() {
   };
 
   const handleAddMakau = () => {
-    addItemToCart(getMakauCartItem());
+    const item = getMakauCartItem(products);
+    if (item) addItemToCart(item);
     closePopup();
   };
 

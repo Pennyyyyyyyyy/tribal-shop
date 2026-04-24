@@ -1,10 +1,11 @@
 import React, { useState } from "react";
 import { RECIPES } from "../data/recipes";
 import {
-  catalogToCartItem,
-  findProduct,
+  productToCartItem,
+  findProductByName,
   getNoodleProducts,
 } from "../data/catalog";
+import { useCheckout } from "../context/CheckoutContext";
 
 export default function RecipePopup({
   mode,
@@ -172,15 +173,16 @@ function CelebrateBody({ recipe, onClose, onViewRecipe }) {
 }
 
 function EducateBody({ onClose, onViewRecipe, onAddProducts }) {
+  const { products } = useCheckout();
   const list = Object.values(RECIPES);
   const [menu, setMenu] = useState(null); // null | "main" | "noodle"
 
   const addComboByNames = (names) => {
     if (!onAddProducts) return;
     const items = names
-      .map(findProduct)
+      .map((n) => findProductByName(products, n))
       .filter(Boolean)
-      .map((p) => catalogToCartItem(p));
+      .map((p) => productToCartItem(p));
     onAddProducts(items);
   };
 
@@ -257,11 +259,11 @@ function EducateBody({ onClose, onViewRecipe, onAddProducts }) {
           <div className="grid grid-cols-1 gap-2">
             <MenuItem
               label="馬告 ＋ 咖啡粉"
-              onClick={() => addComboByNames(["馬告（山胡椒）", "咖啡粉"])}
+              onClick={() => addComboByNames(["馬告", "咖啡粉"])}
             />
             <MenuItem
               label="馬告 ＋ 冬瓜磚"
-              onClick={() => addComboByNames(["馬告（山胡椒）", "冬瓜磚"])}
+              onClick={() => addComboByNames(["馬告", "冬瓜磚"])}
             />
             <MenuItem
               label="馬告 ＋ 泡麵 ▸"
@@ -286,11 +288,11 @@ function EducateBody({ onClose, onViewRecipe, onAddProducts }) {
             </button>
           </div>
           <div className="grid grid-cols-1 gap-2">
-            {getNoodleProducts().map((n) => (
+            {getNoodleProducts(products).map((n) => (
               <MenuItem
-                key={n.name}
+                key={n.id}
                 label={`${n.name}　NT$${n.price}`}
-                onClick={() => addComboByNames(["馬告（山胡椒）", n.name])}
+                onClick={() => addComboByNames(["馬告", n.name])}
               />
             ))}
           </div>

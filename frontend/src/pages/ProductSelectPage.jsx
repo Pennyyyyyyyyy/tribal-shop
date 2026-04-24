@@ -1,18 +1,28 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCheckout } from "../context/CheckoutContext";
-import { CATALOG, CATEGORIES, catalogToCartItem } from "../data/catalog";
+
+const normalizeCategory = (c) => (c || "").trim();
 
 export default function ProductSelectPage() {
   const navigate = useNavigate();
-  const { addItemToCart, cart, totalAmount, API_BASE_URL } = useCheckout();
+  const { addItemToCart, cart, totalAmount, products } = useCheckout();
   const [activeCategory, setActiveCategory] = useState("all");
   const [quantities, setQuantities] = useState({});
 
+  const categories = useMemo(() => {
+    const set = new Set();
+    for (const p of products) {
+      const c = normalizeCategory(p.category);
+      if (c) set.add(c);
+    }
+    return [{ key: "all", label: "全部" }, ...Array.from(set).map((c) => ({ key: c, label: c }))];
+  }, [products]);
+
   const filtered =
     activeCategory === "all"
-      ? CATALOG
-      : CATALOG.filter((p) => p.category === activeCategory);
+      ? products
+      : products.filter((p) => normalizeCategory(p.category) === activeCategory);
 
   const getQty = (name) => quantities[name] || 1;
 
@@ -23,18 +33,24 @@ export default function ProductSelectPage() {
   };
 
   const handleAdd = (item) => {
-    addItemToCart(catalogToCartItem(item, getQty(item.name)));
+    addItemToCart({
+      id: item.id,
+      name: item.name,
+      price: item.price,
+      image_url: item.image_url,
+      quantity: getQty(item.name),
+    });
     setQuantities((prev) => ({ ...prev, [item.name]: 1 }));
   };
 
   return (
-    <div className="w-full h-full flex gap-4">
+    <div className="w-full flex-1 min-h-0 flex gap-4">
       {/* 左側類別欄 */}
       <div className="w-28 shrink-0 flex flex-col gap-2 pt-2">
         <h3 className="text-sm font-semibold text-slate-500 mb-1 px-2">
           類別
         </h3>
-        {CATEGORIES.map((cat) => (
+        {categories.map((cat) => (
           <button
             key={cat.key}
             onClick={() => setActiveCategory(cat.key)}
@@ -59,17 +75,25 @@ export default function ProductSelectPage() {
 
       {/* 右側商品區 */}
       <div className="flex-1 flex flex-col min-h-0">
-        <div className="flex-1 overflow-auto">
-          <div className="grid grid-cols-3 lg:grid-cols-5 gap-3">
+        <div
+          className="flex-1 overflow-y-scroll pr-3
+            [&::-webkit-scrollbar]:w-2
+            [&::-webkit-scrollbar-track]:bg-slate-100
+            [&::-webkit-scrollbar-track]:rounded-full
+            [&::-webkit-scrollbar-thumb]:bg-slate-400
+            [&::-webkit-scrollbar-thumb]:rounded-full
+            hover:[&::-webkit-scrollbar-thumb]:bg-slate-500"
+        >
+          <div className="flex flex-wrap gap-3">
             {filtered.map((item) => (
               <div
                 key={item.name}
                 data-testid={`product-card-${item.name}`}
-                className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col"
+                className="w-44 flex-none bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col"
               >
-                <div className="aspect-square bg-slate-50 flex items-center justify-center p-3">
+                <div className="w-full h-44 bg-slate-50 flex items-center justify-center p-3 shrink-0">
                   <img
-                    src={item.photo}
+                    src={item.image_url}
                     alt={item.name}
                     className="max-w-full max-h-full object-contain mx-auto"
                   />

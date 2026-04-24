@@ -1,16 +1,20 @@
 import io
+import os
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from fastapi import APIRouter, UploadFile, File
 from PIL import Image
+from dotenv import load_dotenv
 
 from app.ai.predict import get_embedding
 
+load_dotenv(os.path.join(os.path.dirname(__file__), "..", "..", ".env"))
+
 router = APIRouter()
 
-DB_CONFIG = "postgresql://postgres.unvshhlkvbkxabzqftrp:WXfzE5GULyoLug9F@aws-1-ap-south-1.pooler.supabase.com:6543/postgres"
+DB_CONFIG = os.getenv("SUPABASE_DB_URL")
 
-# ✅ 正確位置
+
 def get_db():
     return psycopg2.connect(DB_CONFIG)
 
