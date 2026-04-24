@@ -4,6 +4,7 @@ function CameraView({
   label = "CAMERA",
   status = "LIVE",
   mode = "external", // ⭐ external | internal
+  fill = false, // ⭐ true 時填滿父層（不設 max-w-xl）
   children,
   videoRef: externalVideoRef,
   onReadyChange,
@@ -105,7 +106,13 @@ function CameraView({
   }, [mode, onErrorChange, onReadyChange, videoRef]);
 
   return (
-    <div className="relative w-full max-w-xl aspect-video bg-black rounded-3xl shadow-2xl overflow-hidden border-4 border-slate-800">
+    <div
+      className={
+        fill
+          ? "relative w-full h-full bg-black rounded-3xl shadow-2xl overflow-hidden border-4 border-slate-800"
+          : "relative w-full max-w-xl aspect-video bg-black rounded-3xl shadow-2xl overflow-hidden border-4 border-slate-800"
+      }
+    >
       <video
         ref={videoRef}
         autoPlay

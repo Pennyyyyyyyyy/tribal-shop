@@ -20,8 +20,15 @@ function pickPopupMode(cart) {
 
 export default function CartPage() {
   const navigate = useNavigate();
-  const { cart, increaseQty, decreaseQty, totalAmount, isTribalMember, addItemToCart } =
-    useCheckout();
+  const {
+    cart,
+    increaseQty,
+    decreaseQty,
+    totalAmount,
+    isTribalMember,
+    addItemToCart,
+    products,
+  } = useCheckout();
 
   const [popup, setPopup] = useState({ mode: null, recipe: null });
 
@@ -42,7 +49,8 @@ export default function CartPage() {
   };
 
   const handleAddMakau = () => {
-    addItemToCart(getMakauCartItem());
+    const item = getMakauCartItem(products);
+    if (item) addItemToCart(item);
     closePopup();
   };
 
