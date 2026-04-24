@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { useCheckout } from "../context/CheckoutContext";
 import RecipePopup from "../components/RecipePopup";
 import { RECIPES, getMakauCartItem, detectCategory } from "../data/recipes";
+import { useVoiceCommand } from "../hooks/useVoiceCommand";
+import { useVoiceInstruction } from "../hooks/useVoiceInstruction";
 
 function pickPopupMode(cart) {
   const { hasCoffee, hasTea, hasNoodle, hasMakau } = detectCategory(cart);
@@ -48,6 +50,20 @@ export default function CartPage() {
     products.forEach((p) => addItemToCart(p));
     closePopup();
   };
+
+  // 語音指示
+  useVoiceInstruction(
+    cart.length > 0 
+      ? `購物車目前有 ${cart.length} 項商品，總金額為 ${totalAmount} 元。確認無誤請說出：結帳。或點選繼續辨識。` 
+      : "購物車目前是空的，請點選繼續辨識商品。",
+    [cart.length, totalAmount]
+  );
+
+  // 語音指令
+  useVoiceCommand({
+    "結帳": () => { if (cart.length > 0) handleCheckoutClick(); },
+    "繼續辨識": () => { navigate("/scan"); }
+  });
 
   return (
     <div className="flex flex-col w-full flex-1 min-h-[60vh]">

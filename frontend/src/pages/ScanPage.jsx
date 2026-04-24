@@ -1,8 +1,9 @@
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCheckout } from "../context/CheckoutContext";
 import CameraView from "../components/CameraView";
 import { useVoiceCommand } from "../hooks/useVoiceCommand";
+import { useVoiceInstruction } from "../hooks/useVoiceInstruction";
 
 const isE2E = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("e2e") === "true";
 
@@ -78,14 +79,38 @@ export default function ScanPage() {
     setScanPhase("IDLE");
   };
 
-  // 註冊語音指令
-  useVoiceCommand({
-    "拍照": () => { if (scanPhase !== "SCANNING") doScan(); },
-    "辨識": () => { if (scanPhase !== "SCANNING") doScan(); },
-    "重新辨識": () => { if (scanPhase === "RESULT") doScan(); },
-    "結帳": () => { if (cart.length > 0) navigate("/cart"); },
-    "查看清單": () => { if (cart.length > 0) navigate("/cart"); }
+  // 解決語音辨識頻繁重啟當機：將每次渲染會改變的 function 透過 useRef 存起來
+  const commandsRef = useRef({});
+  useEffect(() => {
+    commandsRef.current = {
+      "拍照": () => { if (scanPhase !== "SCANNING") doScan(); },
+      "辨識": () => { if (scanPhase !== "SCANNING") doScan(); },
+      "重新辨識": () => { if (scanPhase === "RESULT") doScan(); },
+      "結帳": () => { if (cart.length > 0) navigate("/cart"); },
+      "查看清單": () => { if (cart.length > 0) navigate("/cart"); }
+    };
   });
+
+  // 傳給 useVoiceCommand 的物件保持穩定不變 (空依賴陣列)
+  const stableCommands = useMemo(() => ({
+    "拍照": () => commandsRef.current["拍照"]?.(),
+    "辨識": () => commandsRef.current["辨識"]?.(),
+    "重新辨識": () => commandsRef.current["重新辨識"]?.(),
+    "結帳": () => commandsRef.current["結帳"]?.(),
+    "查看清單": () => commandsRef.current["查看清單"]?.()
+  }), []);
+
+  useVoiceCommand(stableCommands);
+
+  // 語音指示
+  useVoiceInstruction(
+    scanPhase === "SCANNING"
+      ? "正在辨識中，請稍候"
+      : scanPhase === "RESULT"
+      ? "辨識完成，請點選畫面加入購物車，或點選重新辨識"
+      : "請將商品對準鏡頭，並說出：拍照，不在新增商品請按查看清單",
+    [scanPhase]
+  );
 
   return (
     <div className="w-full h-full flex flex-col bg-slate-50">
