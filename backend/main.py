@@ -27,7 +27,6 @@ app.include_router(checkout.router)
 app.include_router(admin.router)
 app.include_router(vision.router, prefix="/vision", tags=["Vision"])
 app.include_router(line_webhook.router)
-app.include_router(vision.router, prefix="/vision", tags=["Vision"])
 
 if __name__ == "__main__":
     import uvicorn
