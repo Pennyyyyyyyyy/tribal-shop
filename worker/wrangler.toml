@@ -1,0 +1,59 @@
+# ─────────────────────────────────────────────────────────────────
+# Cloudflare Worker 設定檔 — 飛鼠商店 (tribal-shop)
+#
+# 部署指令：
+#   npx wrangler dev                     本地跑 (http://localhost:8787)
+#   npx wrangler deploy                  部署到「正式」Worker  ← 會影響店家！
+#   npx wrangler deploy --env staging    部署到「測試」Worker  ← 只影響 workers.dev 子網域
+#
+# Secrets 用指令設定 (不寫在這個檔案裡)：
+#   npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY
+#   npx wrangler secret put LINE_CHANNEL_ACCESS_TOKEN
+#   npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY --env staging
+#   npx wrangler secret put LINE_CHANNEL_ACCESS_TOKEN --env staging
+# ─────────────────────────────────────────────────────────────────
+
+# ⚠️ `name` 必須和 Cloudflare Dashboard 上實際存在的 Worker 名字一模一樣，
+# 否則 `wrangler deploy` 會建一個「全新」的 Worker、而不是更新現有那個。
+# 你 Dashboard 上的 Worker 目前叫 "holy-resonance-d046"，已經綁了 flying-squirrel-shop.com。
+name = "holy-resonance-d046"
+main = "src/index.js"
+compatibility_date = "2025-01-01"
+
+# ── 正式環境 (production) ─────────────────────────────────────────
+# `wrangler deploy` (不加 --env) 會用這一組，直接更新 holy-resonance-d046
+# → flying-squirrel-shop.com 立刻生效。
+
+[vars]
+# ⚠️ Supabase REST API 的 HTTPS URL，不是 Postgres 連線字串。
+# Supabase Dashboard → Project Settings → API → Project URL 抓值。
+SUPABASE_URL = "https://unvshhlkvbkxabzqftrp.supabase.co"
+ENVIRONMENT = "production"
+
+# 自訂網域 flying-squirrel-shop.com 已經在 Cloudflare Dashboard 綁到這個 Worker，
+# 所以「不用」加 [[routes]]，deploy 更新 code 後網域自動指到新版。
+
+
+# ── 測試環境 (staging) ────────────────────────────────────────────
+# 用 `wrangler deploy --env staging` 部署。
+# name 不同 → Cloudflare 會建另一個 Worker，正式版完全不動。
+# URL 會長成: https://flying-squirrel-shop-staging.<你的帳號>.workers.dev
+
+[env.staging]
+name = "flying-squirrel-shop-staging"
+
+[env.staging.vars]
+SUPABASE_URL = "https://unvshhlkvbkxabzqftrp.supabase.co"
+ENVIRONMENT = "staging"
+
+
+# ── 之後可能會加的區塊 (現在不用管) ───────────────────────────────
+#
+# Cron trigger — 例如夜間低庫存通知：
+# [triggers]
+# crons = ["0 22 * * *"]
+#
+# KV — key-value 快取：
+# [[kv_namespaces]]
+# binding = "CACHE"
+# id = "xxxx"

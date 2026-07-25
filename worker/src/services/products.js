@@ -1,0 +1,88 @@
+// 商品業務邏輯。LINE bot 和未來 admin API 都要走這裡。
+import * as supabase from "../lib/supabase.js";
+import { taipeiToday } from "../lib/time.js";
+
+// LINE picker 用（欄位精簡）。分類優先 → 名稱，同類商品自然聚在一起。
+export async function list(env) {
+    return supabase.query(env, "/rest/v1/products?select=id,name,stock,image_url,category&order=category,name");
+}
+
+// Admin 用（含 price、category、trained 等全欄位）。
+export async function listAll(env) {
+    return supabase.query(env, "/rest/v1/products?select=*&order=category,name");
+}
+
+export async function getById(env, id) {
+    const r = await supabase.query(env, `/rest/v1/products?id=eq.${id}`);
+    return r[0] || null;
+}
+
+// 建立商品 + 同步建 training_data 佔位（LINE 補 4 張照片時要用）。
+export async function create(env, { name, price, category, stock }) {
+    const product = await supabase.postReturn(env, "/rest/v1/products", {
+        name,
+        price: parseInt(price),
+        category,
+        stock: parseInt(stock),
+        trained: false,
+    });
+    await supabase.post(env, "/rest/v1/training_data", {
+        product_id: product.id,
+        english_name: "PENDING",
+    });
+    return product;
+}
+
+// 調整庫存 delta（結帳 = 負；補貨 = 正）。回傳更新後庫存，找不到商品回 null。
+export async function adjustStock(env, id, delta) {
+    const rows = await supabase.query(env, `/rest/v1/products?id=eq.${id}&select=stock`);
+    if (!rows.length) return null;
+    const newStock = (rows[0].stock || 0) + delta;
+    await supabase.patch(env, `/rest/v1/products?id=eq.${id}`, { stock: newStock });
+    return newStock;
+}
+
+// 補貨紀錄（stock 表）。日期用台灣時區的當日 YYYY-MM-DD，
+// 避免台灣深夜補貨（UTC 凌晨）被記成隔天。
+export async function recordRestock(env, productId, quantity) {
+    return supabase.post(env, "/rest/v1/stock", {
+        product_id: productId,
+        quantity,
+        restock_date: taipeiToday(),
+    });
+}
+
+export async function setImageUrl(env, id, url) {
+    return supabase.patch(env, `/rest/v1/products?id=eq.${id}`, { image_url: url });
+}
+
+// 找目前正在補訓練照片的商品（trained=false，最新一筆）。
+export async function findLatestUntrained(env) {
+    const r = await supabase.query(env, "/rest/v1/products?trained=eq.false&order=id.desc&limit=1");
+    return r[0] || null;
+}
+
+// Admin 編輯商品：白名單欄位，避免打進不該改的欄（id / created_at 等）。
+const UPDATABLE_FIELDS = ["name", "price", "category", "stock", "image_url", "trained"];
+const INT_FIELDS = new Set(["price", "stock"]);
+
+export async function update(env, id, patch) {
+    const clean = {};
+    for (const key of UPDATABLE_FIELDS) {
+        if (patch[key] !== undefined) {
+            clean[key] = INT_FIELDS.has(key) ? parseInt(patch[key]) : patch[key];
+        }
+    }
+    if (Object.keys(clean).length === 0) return getById(env, id);
+    await supabase.patch(env, `/rest/v1/products?id=eq.${id}`, clean);
+    return getById(env, id);
+}
+
+export async function remove(env, id) {
+    return supabase.remove(env, `/rest/v1/products?id=eq.${id}`);
+}
+
+// Dashboard 用：庫存低於門檻（含）的商品清單。
+export async function findLowStock(env, threshold = 5) {
+    return supabase.query(env, `/rest/v1/products?stock=lte.${threshold}&select=id,name,stock&order=stock`);
+}

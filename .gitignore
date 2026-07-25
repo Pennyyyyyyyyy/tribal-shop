@@ -59,3 +59,6 @@ backend/app/ai/sync_local_to_supabase.py
 
 # Claude Code 本地設定（如果不想 push）
 .claude/
+
+CLAUDE.md 
+PENDING.md
