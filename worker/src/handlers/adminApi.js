@@ -237,13 +237,23 @@ async function route(method, path, request, env, url) {
         const id = payoutIdMatch[1];
         if (method === "GET") return json(await payouts.getById(env, id));
         if (method === "DELETE") {
+            const force = url.searchParams.get("force") === "true";
             try {
-                await payouts.remove(env, id);
+                await payouts.remove(env, id, { force });
                 return json({ status: "deleted", id: parseInt(id) });
             } catch (err) {
                 return json({ error: err.message }, 400);
             }
         }
+    }
+
+    // 改回待付（撤銷）。不發 LINE 通知。
+    const unmarkPaidMatch = path.match(/^\/payouts\/(\d+)\/unmark-paid$/);
+    if (unmarkPaidMatch && method === "POST") {
+        const id = unmarkPaidMatch[1];
+        const payout = await payouts.unmarkPaid(env, id);
+        if (!payout) return json({ error: "payout not found" }, 404);
+        return json({ ok: true, payout });
     }
 
     // 標記已付 + 通知族人。通知寫在 handler 而非 service，讓「通知失敗不影響已付狀態」自然發生。

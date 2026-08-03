@@ -147,6 +147,15 @@ export async function markPaid(env, payoutId) {
     return getById(env, payoutId);
 }
 
+// 改回待付。清 paid_at；不發 LINE 通知（撤銷是內部作業，不打擾族人）。
+export async function unmarkPaid(env, payoutId) {
+    await supabase.patch(env, `/rest/v1/payouts?id=eq.${payoutId}`, {
+        status: "pending",
+        paid_at: null,
+    });
+    return getById(env, payoutId);
+}
+
 export async function getById(env, id) {
     const r = await supabase.query(env, `/rest/v1/payouts?id=eq.${id}`);
     return r[0] || null;
@@ -160,10 +169,13 @@ export async function list(env, { lineId, status } = {}) {
     return supabase.query(env, path);
 }
 
-// 只允許刪 pending —— 已付結算屬於歷史帳，絕不從 DB 抹除。
-export async function remove(env, id) {
+// 預設只允許刪 pending —— 已付結算屬於歷史帳，避免手滑。
+// admin 明確傳 force=true 時可刪已付（供撤銷 / 修正錯誤結算）。
+export async function remove(env, id, { force = false } = {}) {
     const existing = await getById(env, id);
     if (!existing) throw new Error("payout not found");
-    if (existing.status === "paid") throw new Error("已付結算不可刪除");
+    if (existing.status === "paid" && !force) {
+        throw new Error("已付結算不可刪除（如確定要刪，請於 API 端點加 ?force=true）");
+    }
     return supabase.remove(env, `/rest/v1/payouts?id=eq.${id}`);
 }

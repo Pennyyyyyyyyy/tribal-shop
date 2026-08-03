@@ -26,30 +26,51 @@ export async function notifyConsignorPayout(env, { lineId, summary }) {
     return resp;
 }
 
-// 結帳完通知店長：先送存證照、再送文字。若賒帳，附上族人 quick reply。
-export async function notifyManagerOfCheckout(env, { managerLineId, type, total, photoUrl, txId }) {
-    const memberList = await members.listAllNicknames(env);
+// 結帳完通知店長：先送存證照、再送文字（含商品明細）。
+// 賒帳才附族人 quick reply picker；現金就是純資訊、不用店長做任何事。
+export async function notifyManagerOfCheckout(env, { managerLineId, type, total, photoUrl, txId, cart }) {
+    const isCredit = type === "credit";
+    const itemsBlock = formatItemsBlock(cart);
+
+    let text = `🔔 結帳通知（${isCredit ? "賒帳" : "現金"}）\n金額：$${total}\n\n購買商品：\n${itemsBlock}`;
+    if (isCredit) text += `\n\n請點選對應族人 ↓`;
+
+    // 只有賒帳才需要查族人清單；現金結帳不需要（多一次 API call 無意義）。
+    const quickReply = isCredit ? await buildDebtorQuickReply(env, txId) : null;
+
     const messages = [
         { type: "image", originalContentUrl: photoUrl, previewImageUrl: photoUrl },
-        {
-            type: "text",
-            text: `🔔 結帳通知 (${type === "credit" ? "賒帳" : "現金"})\n金額: $${total}\n請確認：`,
-            quickReply: type === "credit"
-                ? {
-                    items: memberList.slice(0, 12).map(m => ({
-                        type: "action",
-                        action: {
-                            type: "postback",
-                            label: m.nickname,
-                            data: `action=confirm_debtor&tx_id=${txId}&name=${m.nickname}`,
-                            displayText: `這是 ${m.nickname}`,
-                        },
-                    })),
-                }
-                : null,
-        },
+        { type: "text", text, ...(quickReply ? { quickReply } : {}) },
     ];
     return line.push(env, managerLineId, messages);
+}
+
+// 把 cart 陣列格式化成「寶寶 × 1 = $130」多行文字。壞資料退回「(無明細)」。
+function formatItemsBlock(cart) {
+    if (!Array.isArray(cart) || cart.length === 0) return "（無明細）";
+    return cart
+        .map(it => {
+            const name = it.name || `#${it.id}`;
+            const qty = it.quantity || 1;
+            const subtotal = (it.price || 0) * qty;
+            return `${name} × ${qty} = $${subtotal}`;
+        })
+        .join("\n");
+}
+
+async function buildDebtorQuickReply(env, txId) {
+    const memberList = await members.listAllNicknames(env);
+    return {
+        items: memberList.slice(0, 12).map(m => ({
+            type: "action",
+            action: {
+                type: "postback",
+                label: m.nickname,
+                data: `action=confirm_debtor&tx_id=${txId}&name=${m.nickname}`,
+                displayText: `這是 ${m.nickname}`,
+            },
+        })),
+    };
 }
 
 // 通用 picker flex message：一列一個 item（圖 + 主標 + 副標）+ postback 到 actionType。

@@ -81,7 +81,8 @@ export async function findLatestUntrained(env) {
 }
 
 // Admin 編輯商品：白名單欄位，避免打進不該改的欄（id / created_at 等）。
-const UPDATABLE_FIELDS = ["name", "price", "category", "stock", "image_url", "trained", "is_active"];
+// consignor_line_id 是 nullable text；prev = null（自營）↔ 某族人 line_id（寄賣）。
+const UPDATABLE_FIELDS = ["name", "price", "category", "stock", "image_url", "trained", "is_active", "consignor_line_id"];
 const INT_FIELDS = new Set(["price", "stock"]);
 const BOOL_FIELDS = new Set(["trained", "is_active"]);
 

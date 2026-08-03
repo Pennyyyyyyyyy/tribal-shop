@@ -29,6 +29,7 @@ export async function handleCheckout(request, env) {
                 total,
                 photoUrl,
                 txId: tx.id,
+                cart,
             });
         }
 
