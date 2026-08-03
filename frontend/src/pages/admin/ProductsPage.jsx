@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import * as api from "../../service/adminApi";
 
 const CATEGORIES = ["零食", "玩具", "日用品", "特色商品", "調味料", "泡麵"];
@@ -11,6 +11,17 @@ export default function ProductsPage() {
     const [creating, setCreating] = useState(false);
     const [filter, setFilter] = useState("");
     const [categoryFilter, setCategoryFilter] = useState("全部");
+    const [consignors, setConsignors] = useState([]);
+    // 欄位排序：null 代表用資料庫原始順序（分類+名稱）。點欄位 header 切換 asc → desc。
+    const [sort, setSort] = useState({ key: null, dir: "asc" });
+
+    useEffect(() => {
+        api.consignors.list().then(setConsignors).catch(() => { });
+    }, []);
+    const consignorMap = useMemo(
+        () => new Map(consignors.map(c => [c.line_id, c.nickname])),
+        [consignors]
+    );
 
     async function load() {
         setLoading(true);
@@ -44,6 +55,30 @@ export default function ProductsPage() {
         if (!filter) return true;
         return p.name.includes(filter) || (p.category || "").includes(filter);
     });
+
+    // 排序後的 view：sort.key === null 走原順序，否則按型別（string / number）排。
+    const sorted = useMemo(() => {
+        if (!sort.key) return filtered;
+        const arr = [...filtered];
+        const mul = sort.dir === "asc" ? 1 : -1;
+        arr.sort((a, b) => {
+            const va = a[sort.key];
+            const vb = b[sort.key];
+            // null / undefined 一律排到最後（不論方向）
+            if (va == null && vb == null) return 0;
+            if (va == null) return 1;
+            if (vb == null) return -1;
+            if (typeof va === "number" && typeof vb === "number") return (va - vb) * mul;
+            return String(va).localeCompare(String(vb), "zh-Hant") * mul;
+        });
+        return arr;
+    }, [filtered, sort]);
+
+    function toggleSort(key) {
+        setSort(s => s.key === key
+            ? { key, dir: s.dir === "asc" ? "desc" : "asc" }
+            : { key, dir: "asc" });
+    }
 
     return (
         <div className="space-y-5">
@@ -86,7 +121,7 @@ export default function ProductsPage() {
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
                 {loading ? (
                     <div className="p-10 text-center text-sm text-slate-500">載入中…</div>
-                ) : filtered.length === 0 ? (
+                ) : sorted.length === 0 ? (
                     <div className="p-10 text-center text-sm text-slate-500">
                         {filter ? "找不到相符的商品" : "還沒有商品"}
                     </div>
@@ -94,17 +129,18 @@ export default function ProductsPage() {
                     <table className="w-full text-sm">
                         <thead className="bg-slate-50 border-b border-slate-200">
                             <tr className="text-left text-xs text-slate-500 uppercase tracking-wider">
-                                <Th>名稱</Th>
-                                <Th>分類</Th>
-                                <Th className="text-right">單價</Th>
-                                <Th className="text-right">庫存</Th>
+                                <SortableTh sortKey="name" sort={sort} onSort={toggleSort}>名稱</SortableTh>
+                                <SortableTh sortKey="category" sort={sort} onSort={toggleSort}>分類</SortableTh>
+                                <SortableTh sortKey="price" sort={sort} onSort={toggleSort} align="right">單價</SortableTh>
+                                <SortableTh sortKey="stock" sort={sort} onSort={toggleSort} align="right">庫存</SortableTh>
                                 <Th>訓練狀態</Th>
+                                <Th>寄賣</Th>
                                 <Th>上架</Th>
                                 <Th></Th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                            {filtered.map(p => (
+                            {sorted.map(p => (
                                 <tr key={p.id} className={"hover:bg-slate-50 transition-colors " + (p.is_active === false ? "opacity-50" : "")}>
                                     <Td className="font-medium text-slate-800">{p.name}</Td>
                                     <Td className="text-slate-600">{p.category || "—"}</Td>
@@ -113,6 +149,15 @@ export default function ProductsPage() {
                                         <span className={p.stock <= 2 ? "text-red-600" : "text-slate-800"}>{p.stock}</span>
                                     </Td>
                                     <Td><StatusPill trained={p.trained} /></Td>
+                                    <Td>
+                                        {p.consignor_line_id ? (
+                                            <span className="text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                                                ◎ {consignorMap.get(p.consignor_line_id) || p.consignor_line_id}
+                                            </span>
+                                        ) : (
+                                            <span className="text-xs text-slate-400">—</span>
+                                        )}
+                                    </Td>
                                     <Td>
                                         <ActiveSwitch
                                             active={p.is_active !== false}
@@ -137,6 +182,7 @@ export default function ProductsPage() {
             {editing && (
                 <ProductModal
                     product={editing}
+                    consignors={consignors}
                     onClose={() => setEditing(null)}
                     onSaved={() => { setEditing(null); load(); }}
                     onDeleted={() => { setEditing(null); load(); }}
@@ -145,6 +191,7 @@ export default function ProductsPage() {
             {creating && (
                 <ProductModal
                     product={null}
+                    consignors={consignors}
                     onClose={() => setCreating(false)}
                     onSaved={() => { setCreating(false); load(); }}
                 />
@@ -156,6 +203,27 @@ export default function ProductsPage() {
 function Th({ children, className = "" }) {
     return <th className={`px-4 py-2.5 font-medium ${className}`}>{children}</th>;
 }
+
+// 可點擊排序的 header — 顯示 ↑ / ↓ 表示當前排序欄與方向。
+function SortableTh({ sortKey, sort, onSort, align = "left", children }) {
+    const active = sort.key === sortKey;
+    const arrow = active ? (sort.dir === "asc" ? "↑" : "↓") : "";
+    return (
+        <th className={`px-4 py-2.5 font-medium ${align === "right" ? "text-right" : ""}`}>
+            <button
+                type="button"
+                onClick={() => onSort(sortKey)}
+                className={
+                    "inline-flex items-center gap-1 uppercase tracking-wider transition-colors " +
+                    (active ? "text-green-700" : "text-slate-500 hover:text-slate-800")
+                }
+            >
+                {children}
+                <span className="text-[10px] w-2 inline-block">{arrow}</span>
+            </button>
+        </th>
+    );
+}
 function Td({ children, className = "" }) {
     return <td className={`px-4 py-3 ${className}`}>{children}</td>;
 }
@@ -163,7 +231,7 @@ function Td({ children, className = "" }) {
 function StatusPill({ trained }) {
     return trained
         ? <span className="text-[11px] px-2 py-0.5 rounded-full bg-green-50 text-green-700 border border-green-200">已訓練</span>
-        : <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-50 text-slate-600 border border-slate-200">待補照片</span>;
+        : <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-50 text-slate-600 border border-slate-200">未訓練</span>;
 }
 
 function ActiveSwitch({ active, onToggle }) {
@@ -198,7 +266,7 @@ function ErrorBar({ message, onDismiss }) {
     );
 }
 
-function ProductModal({ product, onClose, onSaved, onDeleted }) {
+function ProductModal({ product, consignors = [], onClose, onSaved, onDeleted }) {
     const isNew = !product;
     const [form, setForm] = useState({
         name: product?.name || "",
@@ -206,6 +274,7 @@ function ProductModal({ product, onClose, onSaved, onDeleted }) {
         category: product?.category || CATEGORIES[0],
         stock: product?.stock ?? 0,
         is_active: product ? product.is_active !== false : true,
+        consignor_line_id: product?.consignor_line_id || null,
     });
     const [error, setError] = useState(null);
     const [busy, setBusy] = useState(false);
@@ -290,6 +359,38 @@ function ProductModal({ product, onClose, onSaved, onDeleted }) {
                         />
                         <span className="text-sm text-slate-700">上架（顧客 POS 看得到）</span>
                     </label>
+
+                    <div className="border-t border-slate-200 pt-4 mt-2">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                checked={!!form.consignor_line_id}
+                                onChange={e => setForm({
+                                    ...form,
+                                    consignor_line_id: e.target.checked
+                                        ? (consignors[0]?.line_id || null)
+                                        : null,
+                                })}
+                                className="w-4 h-4 accent-amber-600"
+                            />
+                            <span className="text-sm text-slate-700">寄賣商品（非店家自營）</span>
+                        </label>
+                        {form.consignor_line_id && (
+                            <div className="mt-3 pl-6">
+                                <span className="text-xs font-medium text-slate-600 mb-1 block">寄賣族人</span>
+                                <select
+                                    value={form.consignor_line_id}
+                                    onChange={e => setForm({ ...form, consignor_line_id: e.target.value })}
+                                    className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-green-500 focus:outline-none bg-white text-sm"
+                                >
+                                    {consignors.length === 0 && <option value="">（尚無寄賣族人 — 請先請對方加 LINE bot 或在 SQL 建）</option>}
+                                    {consignors.map(c => (
+                                        <option key={c.line_id} value={c.line_id}>{c.nickname}（{c.line_id}）</option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 {error && (

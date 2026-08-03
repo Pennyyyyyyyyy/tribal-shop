@@ -7,6 +7,8 @@ const NAV = [
     { to: "/admin/products", label: "商品" },
     { to: "/admin/transactions", label: "交易" },
     { to: "/admin/members", label: "族人" },
+    { to: "/admin/consignors", label: "寄賣" },
+    { to: "/admin/payouts", label: "分潤" },
     { to: "/admin/announcements", label: "公告" },
 ];
 

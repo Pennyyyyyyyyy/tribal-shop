@@ -111,6 +111,7 @@ export function CheckoutProvider({ children }) {
         cartCount,
         resetAll,
         API_BASE_URL,
+        WORKER_URL,
       }}
     >
       {children}

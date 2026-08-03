@@ -21,6 +21,8 @@ import AdminDashboardPage from "./pages/admin/DashboardPage";
 import AdminProductsPage from "./pages/admin/ProductsPage";
 import AdminTransactionsPage from "./pages/admin/TransactionsPage";
 import AdminMembersPage from "./pages/admin/MembersPage";
+import AdminConsignorsPage from "./pages/admin/ConsignorsPage";
+import AdminPayoutsPage from "./pages/admin/PayoutsPage";
 import AdminAnnouncementsPage from "./pages/admin/AnnouncementsPage";
 
 function App() {
@@ -40,6 +42,8 @@ function App() {
         <Route path="products" element={<AdminProductsPage />} />
         <Route path="transactions" element={<AdminTransactionsPage />} />
         <Route path="members" element={<AdminMembersPage />} />
+        <Route path="consignors" element={<AdminConsignorsPage />} />
+        <Route path="payouts" element={<AdminPayoutsPage />} />
         <Route path="announcements" element={<AdminAnnouncementsPage />} />
       </Route>
 

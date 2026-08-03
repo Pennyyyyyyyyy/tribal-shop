@@ -29,11 +29,14 @@ export default function TransactionsPage() {
     // 可傳 fromArg / toArg 覆蓋 state（給快捷區間 button 用，避開 React
     // setState 非同步讀到舊 closure state 導致要按兩次才對的 bug）。
     async function load(fromArg, toArg) {
-        const f = fromArg !== undefined ? fromArg : from;
-        const t = toArg !== undefined ? toArg : to;
+        // 只吃 string；防止 <button onClick={load}> 把 SyntheticEvent 當日期傳進來的坑。
+        const f = typeof fromArg === "string" ? fromArg : from;
+        const t = typeof toArg === "string" ? toArg : to;
         setLoading(true);
         try {
-            setItems(await api.transactions.list({ from: f || undefined, to: t || undefined }));
+            const data = await api.transactions.list({ from: f || undefined, to: t || undefined });
+            // 防禦：若 API 回非陣列（例如 supabase 錯誤物件），強制退回 [] 避免下方 useMemo 崩。
+            setItems(Array.isArray(data) ? data : []);
             setError(null);
         } catch (err) {
             setError(err.message);
@@ -92,7 +95,7 @@ export default function TransactionsPage() {
                     <DateInput label="從" value={from} onChange={setFrom} />
                     <DateInput label="到" value={to} onChange={setTo} />
                     <button
-                        onClick={load}
+                        onClick={() => load()}
                         className="px-4 py-2 rounded-xl bg-green-600 hover:bg-green-500 text-white text-sm font-semibold shadow-sm transition-colors"
                     >
                         查詢

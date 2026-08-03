@@ -11,7 +11,7 @@ const isE2E =
 
 export default function EvidencePage() {
   const navigate = useNavigate();
-  const { cart, totalAmount, API_BASE_URL, resetAll, isTribalMember } =
+  const { cart, totalAmount, WORKER_URL, resetAll, isTribalMember } =
     useCheckout();
 
   const evidenceVideoRef = useRef(null);
@@ -65,8 +65,8 @@ export default function EvidencePage() {
       // 3. 放入存證照片
       formData.append("photo", photoBlob, "evidence.jpg");
 
-      // 🚀 直接寫入你的 Cloudflare 自定義網域路徑
-      const uploadResponse = await fetch("https://flying-squirrel-shop.com/checkout", {
+      // 走 VITE_WORKER_URL 環境變數 — 開發指 staging、正式切 production 都在 .env 換掉即可，不動 code。
+      const uploadResponse = await fetch(`${WORKER_URL}/checkout`, {
         method: "POST",
         body: formData,
         // 瀏覽器會自動處理 multipart/form-data 的 boundary，所以不需手動設 headers

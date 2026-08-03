@@ -101,3 +101,37 @@ export const announcements = {
 export const stats = {
     dashboard: () => request("/stats/dashboard"),
 };
+
+// ─── Consignors 寄賣族人 ─────────────────────────────────────────
+export const consignors = {
+    list: () => request("/consignors"),
+    // lineId 是 text 主鍵，可能含破 URL 的字元 → encode。
+    detail: (lineId, { from, to } = {}) => {
+        const q = new URLSearchParams();
+        if (from) q.set("from", from);
+        if (to) q.set("to", to);
+        const qs = q.toString();
+        return request(`/consignors/${encodeURIComponent(lineId)}${qs ? `?${qs}` : ""}`);
+    },
+};
+
+// ─── Payouts 分潤結算 ───────────────────────────────────────────
+export const payouts = {
+    list: ({ consignor, status } = {}) => {
+        const q = new URLSearchParams();
+        if (consignor) q.set("consignor", consignor);
+        if (status) q.set("status", status);
+        const qs = q.toString();
+        return request(`/payouts${qs ? `?${qs}` : ""}`);
+    },
+    get: (id) => request(`/payouts/${id}`),
+    preview: ({ consignor_line_id, from, to }) =>
+        request(`/payouts/preview`, { method: "POST", body: { consignor_line_id, from, to } }),
+    create: ({ consignor_line_id, from, to }) =>
+        request(`/payouts`, { method: "POST", body: { consignor_line_id, from, to } }),
+    // force=true 才能刪已付結算（歷史帳，需明確指定）。
+    remove: (id, { force = false } = {}) =>
+        request(`/payouts/${id}${force ? "?force=true" : ""}`, { method: "DELETE" }),
+    markPaid: (id) => request(`/payouts/${id}/mark-paid`, { method: "POST" }),
+    unmarkPaid: (id) => request(`/payouts/${id}/unmark-paid`, { method: "POST" }),
+};
