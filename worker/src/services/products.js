@@ -22,6 +22,14 @@ export async function listAll(env) {
     return supabase.query(env, "/rest/v1/products?select=*&order=category,name");
 }
 
+// 給結帳寫 transaction_items 用：撈這批商品當下的 consignor_line_id snapshot。
+// 不信前端傳的值 —— 顧客那端不該知道也不該決定寄賣歸屬。
+export async function getConsignorMap(env, ids) {
+    if (!ids || !ids.length) return new Map();
+    const rows = await supabase.query(env, `/rest/v1/products?id=in.(${ids.join(",")})&select=id,consignor_line_id`);
+    return new Map((Array.isArray(rows) ? rows : []).map(p => [p.id, p.consignor_line_id]));
+}
+
 export async function getById(env, id) {
     const r = await supabase.query(env, `/rest/v1/products?id=eq.${id}`);
     return r[0] || null;

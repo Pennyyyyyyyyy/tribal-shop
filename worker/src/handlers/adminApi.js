@@ -7,6 +7,9 @@ import * as members from "../services/members.js";
 import * as transactions from "../services/transactions.js";
 import * as announcements from "../services/announcements.js";
 import * as stats from "../services/stats.js";
+import * as consignors from "../services/consignors.js";
+import * as payouts from "../services/payouts.js";
+import * as notifications from "../services/notifications.js";
 
 const CORS = {
     "Access-Control-Allow-Origin": "*",
@@ -182,6 +185,88 @@ async function route(method, path, request, env, url) {
     // Dashboard
     if (path === "/stats/dashboard" && method === "GET") {
         return json(await stats.dashboard(env));
+    }
+
+    // ─── Consignors 寄賣族人 ────────────────────────────────────────
+    if (path === "/consignors" && method === "GET") {
+        return json(await consignors.list(env));
+    }
+    // /consignors/<lineId>?from=&to= — lineId 是 text，前端要 encodeURIComponent；[^/]+ 匹配到下一個 slash。
+    const consignorMatch = path.match(/^\/consignors\/([^\/]+)$/);
+    if (consignorMatch && method === "GET") {
+        const lineId = decodeURIComponent(consignorMatch[1]);
+        const consignor = await consignors.getByLineId(env, lineId);
+        if (!consignor) return json({ error: "consignor not found" }, 404);
+        const from = url.searchParams.get("from");
+        const to = url.searchParams.get("to");
+        const sales = (from && to) ? await consignors.getSalesInRange(env, lineId, from, to) : [];
+        return json({ consignor, from, to, sales });
+    }
+
+    // ─── Payouts 分潤結算 ───────────────────────────────────────────
+    // Preview：試算不寫入。放在 /payouts/preview 而不用 GET，避免 query string 太長且語意上是「計算」。
+    if (path === "/payouts/preview" && method === "POST") {
+        const body = await request.json();
+        const { consignor_line_id, from, to } = body || {};
+        if (!consignor_line_id || !from || !to) return json({ error: "consignor_line_id, from, to required" }, 400);
+        return json(await payouts.computePeriod(env, { lineId: consignor_line_id, from, to }));
+    }
+
+    if (path === "/payouts") {
+        if (method === "GET") {
+            const lineId = url.searchParams.get("consignor");
+            const status = url.searchParams.get("status");
+            return json(await payouts.list(env, { lineId, status }));
+        }
+        if (method === "POST") {
+            const body = await request.json();
+            const { consignor_line_id, from, to } = body || {};
+            if (!consignor_line_id || !from || !to) return json({ error: "consignor_line_id, from, to required" }, 400);
+            try {
+                return json(await payouts.create(env, { lineId: consignor_line_id, from, to }), 201);
+            } catch (err) {
+                // 覆蓋期間衝突走 409（客戶端要提示改日期），其他錯誤走 500 由外層 try catch 處理。
+                if (err.message && err.message.includes("重疊")) return json({ error: err.message }, 409);
+                throw err;
+            }
+        }
+    }
+
+    const payoutIdMatch = path.match(/^\/payouts\/(\d+)$/);
+    if (payoutIdMatch) {
+        const id = payoutIdMatch[1];
+        if (method === "GET") return json(await payouts.getById(env, id));
+        if (method === "DELETE") {
+            try {
+                await payouts.remove(env, id);
+                return json({ status: "deleted", id: parseInt(id) });
+            } catch (err) {
+                return json({ error: err.message }, 400);
+            }
+        }
+    }
+
+    // 標記已付 + 通知族人。通知寫在 handler 而非 service，讓「通知失敗不影響已付狀態」自然發生。
+    const markPaidMatch = path.match(/^\/payouts\/(\d+)\/mark-paid$/);
+    if (markPaidMatch && method === "POST") {
+        const id = markPaidMatch[1];
+        const payout = await payouts.markPaid(env, id);
+        if (!payout) return json({ error: "payout not found" }, 404);
+        let notified = true;
+        try {
+            const summary = await payouts.computePeriod(env, {
+                lineId: payout.consignor_line_id,
+                from: payout.period_start,
+                to: payout.period_end,
+            });
+            await notifications.notifyConsignorPayout(env, {
+                lineId: payout.consignor_line_id,
+                summary,
+            });
+        } catch {
+            notified = false;
+        }
+        return json({ ok: true, payout, notified });
     }
 
     return json({ error: "not found", path, method }, 404);

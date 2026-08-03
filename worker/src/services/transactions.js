@@ -1,5 +1,6 @@
 // 結帳交易業務邏輯。POS 打 /checkout 走這裡；未來 admin API 也讀這裡。
 import * as supabase from "../lib/supabase.js";
+import * as products from "./products.js";
 import { taipeiDayStart, taipeiDayEnd } from "../lib/time.js";
 
 // 上傳結帳存證照片到 evidence bucket，回 public URL。
@@ -8,8 +9,13 @@ async function uploadEvidence(env, blob) {
     return supabase.uploadPublic(env, "evidence", path, blob, "image/jpeg");
 }
 
-// 建立一筆交易。上傳照片 + 寫 transaction 表。回傳 { tx, photoUrl }。
+// 建立一筆交易。上傳照片 + 寫 transaction 表 + 拆 line items 到 transaction_items。
 // 庫存扣減 / 通知 manager 是分離的 concern，留給 handler 或別的 service 呼叫。
+//
+// item_list JSON blob 現在跟 transaction_items 並存 —— 前者是歷史欄位，暫時保留避免斷開既有讀取；
+// admin UI 全走 transaction_items 之後可以砍。
+//
+// consignor_line_id snapshot：從 products 查當下的值，不信前端傳的（顧客端不該決定寄賣歸屬）。
 export async function create(env, { type, total, cart, photoBlob }) {
     const photoUrl = await uploadEvidence(env, photoBlob);
     const tx = await supabase.postReturn(env, "/rest/v1/transaction", {
@@ -19,6 +25,20 @@ export async function create(env, { type, total, cart, photoBlob }) {
         checkout_image: photoUrl,
         identity: type === "credit" ? "待確認族人" : "遊客",
     });
+
+    if (Array.isArray(cart) && cart.length > 0) {
+        const productIds = [...new Set(cart.map(it => it.id).filter(id => id != null))];
+        const consignorMap = await products.getConsignorMap(env, productIds);
+        const rows = cart.map(it => ({
+            transaction_id: tx.id,
+            product_id: it.id ?? null,
+            quantity: it.quantity || 1,
+            unit_price: it.price ?? 0,
+            consignor_line_id: consignorMap.get(it.id) || null,
+        }));
+        await supabase.post(env, "/rest/v1/transaction_items", rows);
+    }
+
     return { tx, photoUrl };
 }
 

@@ -2,6 +2,30 @@
 import * as line from "../lib/line.js";
 import * as members from "./members.js";
 
+// 分潤入帳通知。summary 由 payouts.computePeriod 產出（含 consignor / items / 金額）。
+// 純文字訊息（不用 flex）—— 店家品牌訊息，可讀性優先。
+export async function notifyConsignorPayout(env, { lineId, summary }) {
+    const { consignor, period_start, period_end, gross_amount, net_payout, items } = summary;
+    const nickname = consignor?.nickname || "夥伴";
+    const itemLines = items.length
+        ? items.map(i => `${i.product_name}  $${i.unit_price} × ${i.quantity} = $${i.subtotal}`).join("\n")
+        : "（無銷售明細）";
+    const text =
+        `💰 分潤入帳通知\n\n` +
+        `您好 ${nickname}，\n` +
+        `您在飛鼠商店 ${period_start} ~ ${period_end} 期間的\n` +
+        `總銷售額：$ ${gross_amount}\n` +
+        `實拿金額：$ ${net_payout}\n\n` +
+        `銷售商品明細：\n${itemLines}`;
+    const resp = await line.push(env, lineId, [{ type: "text", text }]);
+    // fetch() 對 4xx / 5xx 不會 throw，這裡明確檢查讓 handler 的 try/catch 抓得到。
+    if (!resp.ok) {
+        const errBody = await resp.text().catch(() => "");
+        throw new Error(`LINE push failed (${resp.status}): ${errBody}`);
+    }
+    return resp;
+}
+
 // 結帳完通知店長：先送存證照、再送文字。若賒帳，附上族人 quick reply。
 export async function notifyManagerOfCheckout(env, { managerLineId, type, total, photoUrl, txId }) {
     const memberList = await members.listAllNicknames(env);
