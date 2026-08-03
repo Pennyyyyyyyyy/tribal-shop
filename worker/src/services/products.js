@@ -7,7 +7,17 @@ export async function list(env) {
     return supabase.query(env, "/rest/v1/products?select=id,name,stock,image_url,category&order=category,name");
 }
 
-// Admin 用（含 price、category、trained 等全欄位）。
+// POS 顧客端用：只回上架商品，欄位精簡到顧客端需要的最小集合。
+// Supabase 若因授權失敗回 error object，這裡強制退回 [] 避免 POS 拿到怪東西。
+export async function listForPos(env) {
+    const r = await supabase.query(
+        env,
+        "/rest/v1/products?is_active=eq.true&select=id,name,price,category,image_url&order=category,name",
+    );
+    return Array.isArray(r) ? r : [];
+}
+
+// Admin 用（含 price、category、trained、is_active 等全欄位）。
 export async function listAll(env) {
     return supabase.query(env, "/rest/v1/products?select=*&order=category,name");
 }
@@ -63,15 +73,17 @@ export async function findLatestUntrained(env) {
 }
 
 // Admin 編輯商品：白名單欄位，避免打進不該改的欄（id / created_at 等）。
-const UPDATABLE_FIELDS = ["name", "price", "category", "stock", "image_url", "trained"];
+const UPDATABLE_FIELDS = ["name", "price", "category", "stock", "image_url", "trained", "is_active"];
 const INT_FIELDS = new Set(["price", "stock"]);
+const BOOL_FIELDS = new Set(["trained", "is_active"]);
 
 export async function update(env, id, patch) {
     const clean = {};
     for (const key of UPDATABLE_FIELDS) {
-        if (patch[key] !== undefined) {
-            clean[key] = INT_FIELDS.has(key) ? parseInt(patch[key]) : patch[key];
-        }
+        if (patch[key] === undefined) continue;
+        if (INT_FIELDS.has(key)) clean[key] = parseInt(patch[key]);
+        else if (BOOL_FIELDS.has(key)) clean[key] = Boolean(patch[key]);
+        else clean[key] = patch[key];
     }
     if (Object.keys(clean).length === 0) return getById(env, id);
     await supabase.patch(env, `/rest/v1/products?id=eq.${id}`, clean);

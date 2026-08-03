@@ -26,6 +26,19 @@ export default function ProductsPage() {
 
     useEffect(() => { load(); }, []);
 
+    // 樂觀切換上架——先改 UI、後打 API；失敗回滾並顯示錯誤。
+    async function toggleActive(product) {
+        const prev = items;
+        const newVal = !product.is_active;
+        setItems(items.map(p => p.id === product.id ? { ...p, is_active: newVal } : p));
+        try {
+            await api.products.update(product.id, { is_active: newVal });
+        } catch (err) {
+            setItems(prev);
+            setError(err.message);
+        }
+    }
+
     const filtered = items.filter(p => {
         if (categoryFilter !== "全部" && p.category !== categoryFilter) return false;
         if (!filter) return true;
@@ -86,12 +99,13 @@ export default function ProductsPage() {
                                 <Th className="text-right">單價</Th>
                                 <Th className="text-right">庫存</Th>
                                 <Th>訓練狀態</Th>
+                                <Th>上架</Th>
                                 <Th></Th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                             {filtered.map(p => (
-                                <tr key={p.id} className="hover:bg-slate-50 transition-colors">
+                                <tr key={p.id} className={"hover:bg-slate-50 transition-colors " + (p.is_active === false ? "opacity-50" : "")}>
                                     <Td className="font-medium text-slate-800">{p.name}</Td>
                                     <Td className="text-slate-600">{p.category || "—"}</Td>
                                     <Td className="text-right font-semibold tabular-nums text-slate-800">${p.price}</Td>
@@ -99,6 +113,12 @@ export default function ProductsPage() {
                                         <span className={p.stock <= 2 ? "text-red-600" : "text-slate-800"}>{p.stock}</span>
                                     </Td>
                                     <Td><StatusPill trained={p.trained} /></Td>
+                                    <Td>
+                                        <ActiveSwitch
+                                            active={p.is_active !== false}
+                                            onToggle={() => toggleActive(p)}
+                                        />
+                                    </Td>
                                     <Td className="text-right">
                                         <button
                                             onClick={() => setEditing(p)}
@@ -146,6 +166,29 @@ function StatusPill({ trained }) {
         : <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-50 text-slate-600 border border-slate-200">待補照片</span>;
 }
 
+function ActiveSwitch({ active, onToggle }) {
+    return (
+        <button
+            type="button"
+            role="switch"
+            aria-checked={active}
+            onClick={onToggle}
+            title={active ? "上架中，點擊下架" : "已下架，點擊上架"}
+            className={
+                "relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500 " +
+                (active ? "bg-green-600" : "bg-slate-300")
+            }
+        >
+            <span
+                className={
+                    "inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform " +
+                    (active ? "translate-x-[18px]" : "translate-x-[3px]")
+                }
+            />
+        </button>
+    );
+}
+
 function ErrorBar({ message, onDismiss }) {
     return (
         <div className="flex items-center justify-between bg-red-50 border border-red-200 rounded-xl px-3 py-2">
@@ -162,6 +205,7 @@ function ProductModal({ product, onClose, onSaved, onDeleted }) {
         price: product?.price ?? "",
         category: product?.category || CATEGORIES[0],
         stock: product?.stock ?? 0,
+        is_active: product ? product.is_active !== false : true,
     });
     const [error, setError] = useState(null);
     const [busy, setBusy] = useState(false);
@@ -237,6 +281,15 @@ function ProductModal({ product, onClose, onSaved, onDeleted }) {
                             />
                         </Field>
                     </div>
+                    <label className="flex items-center gap-2 mt-1 cursor-pointer">
+                        <input
+                            type="checkbox"
+                            checked={form.is_active}
+                            onChange={e => setForm({ ...form, is_active: e.target.checked })}
+                            className="w-4 h-4 accent-green-600"
+                        />
+                        <span className="text-sm text-slate-700">上架（顧客 POS 看得到）</span>
+                    </label>
                 </div>
 
                 {error && (

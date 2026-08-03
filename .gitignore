@@ -61,4 +61,3 @@ backend/app/ai/sync_local_to_supabase.py
 .claude/
 
 CLAUDE.md 
-PENDING.md
