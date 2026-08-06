@@ -75,13 +75,39 @@ async function requireAuth(request, env) {
 
 // ─── Router ──────────────────────────────────────────────────────
 async function route(method, path, request, env, url) {
-    // Products
+    // Products — 支援 ?status=pending filter（審核用）。
     if (path === "/products") {
-        if (method === "GET") return json(await products.listAll(env));
+        if (method === "GET") {
+            const status = url.searchParams.get("status");
+            if (status === "pending") return json(await products.listPending(env));
+            return json(await products.listAll(env));
+        }
         if (method === "POST") {
             const body = await request.json();
             return json(await products.create(env, body), 201);
         }
+    }
+    // 審核端點 — LINE 是主管道、admin UI 是後備。
+    const approveMatch = path.match(/^\/products\/(\d+)\/approve$/);
+    if (approveMatch && method === "POST") {
+        return json(await products.approve(env, approveMatch[1]));
+    }
+    const rejectMatch = path.match(/^\/products\/(\d+)\/reject$/);
+    if (rejectMatch && method === "POST") {
+        const body = await request.json();
+        const reason = (body.reason || "").trim();
+        // 先 push 通知（含 reason）→ 通知成功才 update DB；push 失敗就不 update，讓店長重試。
+        const product = await products.getById(env, rejectMatch[1]);
+        if (!product) return json({ error: "product not found" }, 404);
+        if (product.consignor_line_id) {
+            try {
+                await notifications.notifyConsignorRejection(env, product.consignor_line_id, product.name, reason);
+            } catch (err) {
+                return json({ error: `LINE 通知失敗，未駁回：${err.message}` }, 500);
+            }
+        }
+        await products.reject(env, rejectMatch[1], reason);
+        return json(await products.getById(env, rejectMatch[1]));
     }
     const productMatch = path.match(/^\/products\/(\d+)$/);
     if (productMatch) {

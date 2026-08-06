@@ -27,3 +27,8 @@ export async function setState(env, lineId, lastCommand, tempData) {
 export async function resetState(env, lineId) {
     return supabase.patch(env, `/rest/v1/users?line_id=eq.${lineId}`, { last_command: null });
 }
+
+// 更新 users.nickname — 給新好友設暱稱、寄賣者 /改暱稱 指令用。
+export async function updateNickname(env, lineId, nickname) {
+    return supabase.patch(env, `/rest/v1/users?line_id=eq.${encodeURIComponent(lineId)}`, { nickname });
+}

@@ -7,12 +7,12 @@ export async function list(env) {
     return supabase.query(env, "/rest/v1/products?select=id,name,stock,image_url,category&order=category,name");
 }
 
-// POS 顧客端用：只回上架商品，欄位精簡到顧客端需要的最小集合。
-// Supabase 若因授權失敗回 error object，這裡強制退回 [] 避免 POS 拿到怪東西。
+// POS 顧客端用：只回上架商品（is_active + 已通過審核）。
+// 欄位精簡到顧客端需要的最小集合。Supabase 若失敗回 error object，強制退回 []。
 export async function listForPos(env) {
     const r = await supabase.query(
         env,
-        "/rest/v1/products?is_active=eq.true&select=id,name,price,category,image_url&order=category,name",
+        "/rest/v1/products?is_active=eq.true&approval_status=eq.approved&select=id,name,price,category,image_url&order=category,name",
     );
     return Array.isArray(r) ? r : [];
 }
@@ -49,6 +49,54 @@ export async function create(env, { name, price, category, stock }) {
         english_name: "PENDING",
     });
     return product;
+}
+
+// 寄賣者透過 LINE 上架的商品：approval_status='pending' + is_active=false，
+// consignor 歸屬 = 上架者自己。等店長按同意才轉 approved + is_active=true。
+export async function createPending(env, { name, price, category, stock, consignorLineId }) {
+    const product = await supabase.postReturn(env, "/rest/v1/products", {
+        name,
+        price: parseInt(price),
+        category,
+        stock: parseInt(stock),
+        trained: false,
+        is_active: false,
+        approval_status: "pending",
+        consignor_line_id: consignorLineId,
+    });
+    await supabase.post(env, "/rest/v1/training_data", {
+        product_id: product.id,
+        english_name: "PENDING",
+    });
+    return product;
+}
+
+// 店長按「同意」→ approval_status='approved' + 上架；清 rejected_reason 以防之前被駁後重審。
+// 注意：不動 trained 欄位 —— trained=true 語意是「ML 模型真的用照片重訓過」，
+// 而不是「店長批准了」；重訓由外部 FastAPI ML 流程另外處理。
+export async function approve(env, id) {
+    await supabase.patch(env, `/rest/v1/products?id=eq.${id}`, {
+        approval_status: "approved",
+        is_active: true,
+        rejected_reason: null,
+    });
+    return getById(env, id);
+}
+
+// 店長按「駁回」→ 標 rejected + 帶原因，維持下架狀態。row 保留供寄賣者 / admin 回顧。
+// LINE 通知寄賣者由呼叫端處理（handler 先 push 成功才 update DB，避免 push 失敗但 row 已改）。
+export async function reject(env, id, reason) {
+    await supabase.patch(env, `/rest/v1/products?id=eq.${id}`, {
+        approval_status: "rejected",
+        is_active: false,
+        rejected_reason: reason || "",
+    });
+    return getById(env, id);
+}
+
+// Admin「待審核」列表。
+export async function listPending(env) {
+    return supabase.query(env, "/rest/v1/products?approval_status=eq.pending&select=*&order=id.desc");
 }
 
 // 調整庫存 delta（結帳 = 負；補貨 = 正）。回傳更新後庫存，找不到商品回 null。

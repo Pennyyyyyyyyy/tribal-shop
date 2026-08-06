@@ -30,6 +30,11 @@ compatibility_date = "2025-01-01"
 SUPABASE_URL = "https://unvshhlkvbkxabzqftrp.supabase.co"
 ENVIRONMENT = "production"
 
+# 每天台北 23:00（UTC 15:00）跑寄賣者當日銷售彙總 push。
+# src/index.js 的 scheduled(event, env, ctx) handler 會接。
+[triggers]
+crons = ["0 15 * * *"]
+
 # 自訂網域 flying-squirrel-shop.com 已經在 Cloudflare Dashboard 綁到這個 Worker，
 # 所以「不用」加 [[routes]]，deploy 更新 code 後網域自動指到新版。
 
@@ -45,6 +50,10 @@ name = "flying-squirrel-shop-staging"
 [env.staging.vars]
 SUPABASE_URL = "https://unvshhlkvbkxabzqftrp.supabase.co"
 ENVIRONMENT = "staging"
+
+# staging 也要 cron，方便先在 workers.dev 環境測 daily digest。
+[env.staging.triggers]
+crons = ["0 15 * * *"]
 
 
 # ── 之後可能會加的區塊 (現在不用管) ───────────────────────────────

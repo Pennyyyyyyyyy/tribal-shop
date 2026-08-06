@@ -1,9 +1,10 @@
-// 飛鼠商店 Worker 入口 — 只做 CORS + route dispatch。
+// 飛鼠商店 Worker 入口 — 只做 CORS + route dispatch + cron trigger。
 // 所有實際邏輯在 handlers/ + services/ + lib/。
 import { handleCheckout } from "./handlers/checkout.js";
 import { handleLineWebhook } from "./handlers/lineWebhook.js";
 import { handleAdminApi } from "./handlers/adminApi.js";
 import * as products from "./services/products.js";
+import * as notifications from "./services/notifications.js";
 
 const CORS_HEADERS = {
     "Access-Control-Allow-Origin": "*",
@@ -47,5 +48,10 @@ export default {
         }
 
         return new Response("OK");
+    },
+
+    // Cron trigger — 台北 23:00（wrangler.toml 設 "0 15 * * *" UTC）跑寄賣者當日銷售彙總。
+    async scheduled(_event, env, ctx) {
+        ctx.waitUntil(notifications.dailyConsignorDigest(env));
     },
 };
