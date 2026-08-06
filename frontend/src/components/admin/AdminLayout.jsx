@@ -5,9 +5,9 @@ import { useAdminAuth } from "../../hooks/useAdminAuth";
 const NAV = [
     { to: "/admin", label: "總覽", end: true },
     { to: "/admin/products", label: "商品" },
+    { to: "/admin/consignment-products", label: "寄賣商品" },
     { to: "/admin/transactions", label: "交易" },
     { to: "/admin/members", label: "族人" },
-    { to: "/admin/consignors", label: "寄賣" },
     { to: "/admin/payouts", label: "分潤" },
     { to: "/admin/announcements", label: "公告" },
 ];

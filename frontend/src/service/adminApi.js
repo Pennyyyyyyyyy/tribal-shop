@@ -59,10 +59,13 @@ export function logout() {
 // ─── Products ───────────────────────────────────────────────────
 export const products = {
     list: () => request("/products"),
+    listPending: () => request("/products?status=pending"),
     get: (id) => request(`/products/${id}`),
     create: (body) => request("/products", { method: "POST", body }),
     update: (id, body) => request(`/products/${id}`, { method: "PATCH", body }),
     remove: (id) => request(`/products/${id}`, { method: "DELETE" }),
+    approve: (id) => request(`/products/${id}/approve`, { method: "POST" }),
+    reject: (id, reason) => request(`/products/${id}/reject`, { method: "POST", body: { reason } }),
 };
 
 // ─── Transactions ───────────────────────────────────────────────

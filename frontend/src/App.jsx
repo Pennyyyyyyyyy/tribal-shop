@@ -21,7 +21,7 @@ import AdminDashboardPage from "./pages/admin/DashboardPage";
 import AdminProductsPage from "./pages/admin/ProductsPage";
 import AdminTransactionsPage from "./pages/admin/TransactionsPage";
 import AdminMembersPage from "./pages/admin/MembersPage";
-import AdminConsignorsPage from "./pages/admin/ConsignorsPage";
+import AdminConsignmentProductsPage from "./pages/admin/ConsignmentProductsPage";
 import AdminPayoutsPage from "./pages/admin/PayoutsPage";
 import AdminAnnouncementsPage from "./pages/admin/AnnouncementsPage";
 
@@ -40,9 +40,9 @@ function App() {
       >
         <Route index element={<AdminDashboardPage />} />
         <Route path="products" element={<AdminProductsPage />} />
+        <Route path="consignment-products" element={<AdminConsignmentProductsPage />} />
         <Route path="transactions" element={<AdminTransactionsPage />} />
         <Route path="members" element={<AdminMembersPage />} />
-        <Route path="consignors" element={<AdminConsignorsPage />} />
         <Route path="payouts" element={<AdminPayoutsPage />} />
         <Route path="announcements" element={<AdminAnnouncementsPage />} />
       </Route>
