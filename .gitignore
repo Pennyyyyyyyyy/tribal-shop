@@ -67,3 +67,4 @@ CONSIGNOR_ROADMAP.md
 supabase/
 full_backup.sql
 
+worker/scripts/

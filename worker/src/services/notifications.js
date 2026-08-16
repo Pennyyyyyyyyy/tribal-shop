@@ -19,7 +19,7 @@ export async function notifyConsignorPayout(env, { lineId, summary }) {
         `總銷售額：$ ${gross_amount}\n` +
         `實拿金額：$ ${net_payout}\n\n` +
         `銷售商品明細：\n${itemLines}`;
-    const resp = await line.push(env, lineId, [{ type: "text", text }]);
+    const resp = await line.push(env, "consignor", lineId, [{ type: "text", text }]);
     // fetch() 對 4xx / 5xx 不會 throw，這裡明確檢查讓 handler 的 try/catch 抓得到。
     if (!resp.ok) {
         const errBody = await resp.text().catch(() => "");
@@ -44,7 +44,7 @@ export async function notifyManagerOfCheckout(env, { managerLineId, type, total,
         { type: "image", originalContentUrl: photoUrl, previewImageUrl: photoUrl },
         { type: "text", text, ...(quickReply ? { quickReply } : {}) },
     ];
-    return line.push(env, managerLineId, messages);
+    return line.push(env, "manager", managerLineId, messages);
 }
 
 // 把 cart 陣列格式化成「寶寶 × 1 = $130」多行文字。壞資料退回「(無明細)」。
@@ -132,7 +132,7 @@ export async function sendPicker(env, replyToken, title, items, actionType) {
             body: { type: "box", layout: "vertical", spacing: "sm", contents: bodyContents },
         },
     };
-    return line.reply(env, replyToken, [flex]);
+    return line.reply(env, "manager", replyToken, [flex]);
 }
 
 // ─── 寄賣者 LINE 自助上架流程用的訊息 ──────────────────────────────
@@ -142,22 +142,24 @@ export async function sendPicker(env, replyToken, title, items, actionType) {
 export async function notifyWelcome(env, lineId) {
     const text =
         `哈囉～歡迎來到飛鼠商店 🌲\n\n` +
-        `在這裡你可以寄賣自己的商品：無論是手工餅乾、部落農產、獵到的馬告、繡製的飾品，都能透過我們的自助商店賣給來訪的客人。\n\n` +
+        `在這裡你可以寄賣自己的商品：無論是餅乾、農產品、手作飾品，都能透過我們的自助商店賣給來訪的客人。\n\n` +
         `店家會幫你收銀、代為結帳，每月月底跟你結算分潤 💰\n\n` +
-        `為了讓我能記住你，我可以怎麼稱呼你呢？（直接輸入你的名字就好）`;
-    return line.push(env, lineId, [{ type: "text", text }]);
+        `為了讓我能記住你，我可以怎麼稱呼你呢？（可以輸入名字或暱稱）`;
+    return line.push(env, "consignor", lineId, [{ type: "text", text }]);
 }
 
 // 寄賣者主選單 quick reply。設暱稱完 / 按取消回主選單 都用得到。
 // 走 reply（消耗 replyToken）；handler 已經拿到 event.replyToken 直接傳進來。
 export async function sendConsignorMenu(env, replyToken, greeting) {
-    return line.reply(env, replyToken, [{
+    return line.reply(env, "consignor", replyToken, [{
         type: "text",
         text: greeting || "需要協助什麼嗎？",
         quickReply: {
             items: [
                 { type: "action", action: { type: "postback", label: "📤 上架商品", data: "action=consignor_upload_start", displayText: "上架商品" } },
                 { type: "action", action: { type: "postback", label: "📋 我的商品", data: "action=consignor_list_own", displayText: "查看我的商品" } },
+                { type: "action", action: { type: "postback", label: "📊 銷售情況", data: "action=consignor_view_sales", displayText: "查看銷售" } },
+                { type: "action", action: { type: "postback", label: "💰 分潤紀錄", data: "action=consignor_view_payouts", displayText: "查看分潤" } },
                 { type: "action", action: { type: "message", label: "改暱稱", text: "/改暱稱" } },
             ],
         },
@@ -213,7 +215,7 @@ export async function notifyManagerReview(env, { managerLineId, product, coverPh
             ],
         },
     };
-    return line.push(env, managerLineId, [{ type: "flex", altText: `新寄賣商品待審：${p.name}`, contents: bubble }]);
+    return line.push(env, "manager", managerLineId, [{ type: "flex", altText: `新寄賣商品待審：${p.name}`, contents: bubble }]);
 }
 
 // flex bubble 中的 label:value 一行 —— 給 notifyManagerReview 內用。
@@ -229,7 +231,7 @@ function kv(label, value) {
 
 // 通過審核 → 通知寄賣者。
 export async function notifyConsignorApproval(env, consignorLineId, productName) {
-    return line.push(env, consignorLineId, [{
+    return line.push(env, "consignor", consignorLineId, [{
         type: "text",
         text: `✅ 您的商品「${productName}」已通過審核，正式上架！\n\n祝賣個好價錢 🎉`,
     }]);
@@ -241,7 +243,7 @@ export async function notifyConsignorRejection(env, consignorLineId, productName
         `❌ 您的商品「${productName}」未通過審核。\n\n` +
         `原因：${reason || "（店長未說明）"}\n\n` +
         `修正後可重新上傳。`;
-    return line.push(env, consignorLineId, [{ type: "text", text }]);
+    return line.push(env, "consignor", consignorLineId, [{ type: "text", text }]);
 }
 
 // ─── Cron trigger：每天台北 23:00 寄賣者當日銷售彙總 ─────────────────
@@ -309,7 +311,7 @@ export async function dailyConsignorDigest(env) {
                 ? `📊 ${nickname}，今日銷售摘要（${today}）`
                 : `📊 今日銷售摘要（${today}）`;
             const text = `${header}\n\n${lines.join("\n")}\n\n今日總銷售：$${total}`;
-            pushes.push(line.push(env, lineId, [{ type: "text", text }]));
+            pushes.push(line.push(env, "consignor", lineId, [{ type: "text", text }]));
         }
         await Promise.allSettled(pushes);
     } catch {

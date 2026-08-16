@@ -20,7 +20,7 @@ function jsonResponse(data, status = 200) {
 }
 
 export default {
-    async fetch(request, env) {
+    async fetch(request, env, ctx) {
         const url = new URL(request.url);
 
         if (request.method === "OPTIONS") {
@@ -43,8 +43,9 @@ export default {
         }
 
         // LINE webhook 有時會設成根路徑，保留 "/" 也接。
+        // 傳 ctx 讓 webhook 能用 waitUntil 處理照片下載等長時間 async work。
         if (request.method === "POST" && (url.pathname === "/callback" || url.pathname === "/")) {
-            return handleLineWebhook(request, env);
+            return handleLineWebhook(request, env, ctx);
         }
 
         return new Response("OK");

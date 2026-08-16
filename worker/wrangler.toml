@@ -29,6 +29,10 @@ compatibility_date = "2025-01-01"
 # Supabase Dashboard → Project Settings → API → Project URL 抓值。
 SUPABASE_URL = "https://unvshhlkvbkxabzqftrp.supabase.co"
 ENVIRONMENT = "production"
+# LINE bot userId（用 body.destination 分流雙 channel），非敏感值。
+# 從 curl https://api.line.me/v2/bot/info 拿。
+LINE_MANAGER_BOT_ID = "Ufa184433bf2ab3a8223b358ecf3e2d12"
+LINE_CONSIGNOR_BOT_ID = "Uba15875289a093ee1431d58f6b784435"
 
 # 每天台北 23:00（UTC 15:00）跑寄賣者當日銷售彙總 push。
 # src/index.js 的 scheduled(event, env, ctx) handler 會接。
@@ -50,6 +54,8 @@ name = "flying-squirrel-shop-staging"
 [env.staging.vars]
 SUPABASE_URL = "https://unvshhlkvbkxabzqftrp.supabase.co"
 ENVIRONMENT = "staging"
+LINE_MANAGER_BOT_ID = "Ufa184433bf2ab3a8223b358ecf3e2d12"
+LINE_CONSIGNOR_BOT_ID = "Uba15875289a093ee1431d58f6b784435"
 
 # staging 也要 cron，方便先在 workers.dev 環境測 daily digest。
 [env.staging.triggers]

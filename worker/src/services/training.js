@@ -24,8 +24,9 @@ export function nextEmptyImageField(trainData) {
 
 // 從 LINE 下載圖片、上傳到 products bucket、update 指定的 training_data row。
 // trainDataId 由 caller 傳入（通常 caller 已經 getOrCreateForProduct 過），避免多打一次 query。
-export async function attachImage(env, { messageId, productId, trainDataId, field }) {
-    const blob = await line.fetchContent(env, messageId);
+// channel: 'manager' | 'consignor' —— messageId 是 channel-scoped，要用對的 token 下載。
+export async function attachImage(env, channel, { messageId, productId, trainDataId, field }) {
+    const blob = await line.fetchContent(env, channel, messageId);
     const path = `${productId}/${field}.jpg`;
     const url = await supabase.uploadPublic(env, "products", path, blob, "image/jpeg", true);
     await supabase.patch(env, `/rest/v1/training_data?id=eq.${trainDataId}`, { [field]: url });

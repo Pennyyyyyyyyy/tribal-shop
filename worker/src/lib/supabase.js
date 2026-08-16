@@ -33,6 +33,10 @@ export async function postReturn(env, path, body) {
         body: JSON.stringify(body),
     });
     const data = await r.json();
+    if (!r.ok || !Array.isArray(data)) {
+        console.error(`[supabase] postReturn ${path} 失敗 status=${r.status}:`, JSON.stringify(data));
+        throw new Error(`Supabase postReturn 失敗 (${r.status}): ${data?.message || data?.hint || "unknown"}`);
+    }
     return data[0];
 }
 

@@ -6,9 +6,10 @@ export async function getByLineId(env, lineId) {
     return r[0] || null;
 }
 
-// 第一次跟 bot 互動的人自動註冊為寄賣者（role='consignor'）。
-export async function autoRegister(env, lineId) {
-    const newUser = { line_id: lineId, nickname: "新夥伴", role: "consignor" };
+// 第一次跟 bot 互動的人自動註冊。role 預設 'consignor'（back-compat），
+// 但 lineWebhook 會依 channel 明確傳入正確 role（manager bot → 'manager'）。
+export async function autoRegister(env, lineId, role = "consignor") {
+    const newUser = { line_id: lineId, nickname: "新夥伴", role };
     await supabase.post(env, "/rest/v1/users", newUser);
     return newUser;
 }
