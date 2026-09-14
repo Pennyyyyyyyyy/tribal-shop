@@ -161,8 +161,29 @@ def _on_postback(event: dict):
         _set(uid, "edit_product_new_price", product_name=params.get("product", ""))
         reply_message(token, [_text("請輸入新的價格（數字）：")])
 
+    elif action == "edit_stock":
+        _set(uid, "edit_product_new_stock", product_name=params.get("product", ""))
+        reply_message(token, [_text("請輸入新的庫存數量（數字）：")])
+
     elif action == "inventory":
+        reply_message(token, [
+            _text_with_quick_reply("【庫存管理】請選擇操作：", [
+                _qr_postback("庫存一覽", "action=view_inventory"),
+                _qr_postback("修改庫存", "action=update_stock"),
+                _qr_postback("補貨", "action=restock"),
+            ]),
+        ])
+
+    elif action == "view_inventory":
         _show_inventory(token)
+
+    elif action == "update_stock":
+        _set(uid, "update_stock_select")
+        reply_message(token, [_text("請輸入要修改庫存的商品名稱：")])
+
+    elif action == "restock":
+        _set(uid, "restock_select")
+        reply_message(token, [_text("請輸入要補貨的商品名稱：")])
 
     elif action == "debt_menu":
         reply_message(token, [
@@ -266,6 +287,7 @@ def _on_text(event: dict):
                 [
                     _qr_postback("品名", f"action=edit_name&product={pname}"),
                     _qr_postback("價格", f"action=edit_price&product={pname}"),
+                    _qr_postback("庫存", f"action=edit_stock&product={pname}"),
                 ],
             ),
         ])
@@ -299,6 +321,85 @@ def _on_text(event: dict):
         conn.commit()
         conn.close()
         reply_message(token, [_text(f"✅ 已將「{pname}」的價格更新為 ${text}")])
+        _clear(uid)
+
+    # ── 修改商品：新庫存 ──
+    elif step == "edit_product_new_stock":
+        if not text.isdigit():
+            reply_message(token, [_text("請輸入有效的數字：")])
+            return
+        pname = data["product_name"]
+        new_stock = int(text)
+        conn = get_db()
+        conn.execute("UPDATE products SET stock = ? WHERE name = ?", (new_stock, pname))
+        conn.commit()
+        conn.close()
+        reply_message(token, [_text(f"✅ 已將「{pname}」的庫存更新為 {new_stock}")])
+        _clear(uid)
+
+    # ── 庫存管理：修改庫存 — 選擇商品 ──
+    elif step == "update_stock_select":
+        conn = get_db()
+        product = conn.execute(
+            "SELECT name, price, stock FROM products WHERE name = ?", (text,)
+        ).fetchone()
+        conn.close()
+        if not product:
+            reply_message(token, [_text(f"找不到商品「{text}」，請重新輸入：")])
+            return
+        _set(uid, "update_stock_value", product_name=text)
+        reply_message(token, [
+            _text(f"商品「{text}」目前庫存：{product['stock']}\n\n請輸入新的庫存數量（數字）："),
+        ])
+
+    # ── 庫存管理：修改庫存 — 輸入數量 ──
+    elif step == "update_stock_value":
+        if not text.isdigit():
+            reply_message(token, [_text("請輸入有效的數字：")])
+            return
+        pname = data["product_name"]
+        new_stock = int(text)
+        conn = get_db()
+        old = conn.execute("SELECT stock FROM products WHERE name = ?", (pname,)).fetchone()
+        conn.execute("UPDATE products SET stock = ? WHERE name = ?", (new_stock, pname))
+        conn.commit()
+        conn.close()
+        reply_message(token, [
+            _text(f"✅ 已更新「{pname}」庫存\n{old['stock']} → {new_stock}"),
+        ])
+        _clear(uid)
+
+    # ── 庫存管理：補貨 — 選擇商品 ──
+    elif step == "restock_select":
+        conn = get_db()
+        product = conn.execute(
+            "SELECT name, price, stock FROM products WHERE name = ?", (text,)
+        ).fetchone()
+        conn.close()
+        if not product:
+            reply_message(token, [_text(f"找不到商品「{text}」，請重新輸入：")])
+            return
+        _set(uid, "restock_amount", product_name=text)
+        reply_message(token, [
+            _text(f"商品「{text}」目前庫存：{product['stock']}\n\n請輸入要補貨的數量（數字）："),
+        ])
+
+    # ── 庫存管理：補貨 — 輸入數量 ──
+    elif step == "restock_amount":
+        if not text.isdigit():
+            reply_message(token, [_text("請輸入有效的數字：")])
+            return
+        pname = data["product_name"]
+        add_qty = int(text)
+        conn = get_db()
+        old = conn.execute("SELECT stock FROM products WHERE name = ?", (pname,)).fetchone()
+        new_stock = old["stock"] + add_qty
+        conn.execute("UPDATE products SET stock = ? WHERE name = ?", (new_stock, pname))
+        conn.commit()
+        conn.close()
+        reply_message(token, [
+            _text(f"✅ 已補貨「{pname}」+{add_qty}\n庫存：{old['stock']} → {new_stock}"),
+        ])
         _clear(uid)
 
     # ── 還款：輸入姓名 ──

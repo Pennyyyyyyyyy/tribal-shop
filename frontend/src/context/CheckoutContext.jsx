@@ -1,7 +1,15 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 
+// FastAPI 只保留 vision（ML 影像辨識）；商品列表已搬到 Worker。
+// API_BASE_URL 仍指 FastAPI，供 ScanPage 的 /vision/detect-product 使用。
+// ⚠️ 不要加 `?.` optional chaining — Vite 的靜態替換只認精確的
+// `import.meta.env.XXX`，加 `?.` 會落到 runtime lookup 拿 undefined。
 const API_BASE_URL =
-  import.meta?.env?.VITE_API_BASE_URL || "http://127.0.0.1:8000";
+  import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
+
+// Worker：商品列表、結帳、admin。
+const WORKER_URL =
+  import.meta.env.VITE_WORKER_URL || "http://localhost:8787";
 
 const MOCK_ITEMS = [
   { id: 1, name: "蘋果", price: 30, image: "🍎" },
@@ -28,7 +36,8 @@ export function CheckoutProvider({ children }) {
   useEffect(() => {
     (async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/products`);
+        // 從 Worker 拿商品（只回 is_active=true 的）
+        const response = await fetch(`${WORKER_URL}/api/products`);
         if (response.ok) {
           const data = await response.json();
           const list = Array.isArray(data) ? data : data.products;
@@ -102,6 +111,7 @@ export function CheckoutProvider({ children }) {
         cartCount,
         resetAll,
         API_BASE_URL,
+        WORKER_URL,
       }}
     >
       {children}

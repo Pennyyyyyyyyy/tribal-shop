@@ -2,7 +2,10 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCheckout } from "../context/CheckoutContext";
 import RecipePopup from "../components/RecipePopup";
-import { RECIPES, getMakauCartItem, detectCategory } from "../data/recipes";
+import { RECIPES, detectCategory } from "../data/recipes";
+import { getMakauCartItem } from "../data/catalog";
+import { useVoiceCommand } from "../hooks/useVoiceCommand";
+import { useVoiceInstruction } from "../hooks/useVoiceInstruction";
 
 function pickPopupMode(cart) {
   const { hasCoffee, hasTea, hasNoodle, hasMakau } = detectCategory(cart);
@@ -18,8 +21,15 @@ function pickPopupMode(cart) {
 
 export default function CartPage() {
   const navigate = useNavigate();
-  const { cart, increaseQty, decreaseQty, totalAmount, isTribalMember, addItemToCart } =
-    useCheckout();
+  const {
+    cart,
+    increaseQty,
+    decreaseQty,
+    totalAmount,
+    isTribalMember,
+    addItemToCart,
+    products,
+  } = useCheckout();
 
   const [popup, setPopup] = useState({ mode: null, recipe: null });
 
@@ -40,7 +50,8 @@ export default function CartPage() {
   };
 
   const handleAddMakau = () => {
-    addItemToCart(getMakauCartItem());
+    const item = getMakauCartItem(products);
+    if (item) addItemToCart(item);
     closePopup();
   };
 
@@ -48,6 +59,20 @@ export default function CartPage() {
     products.forEach((p) => addItemToCart(p));
     closePopup();
   };
+
+  // 語音指示
+  useVoiceInstruction(
+    cart.length > 0
+      ? `購物車目前有 ${cart.length} 項商品，總金額為 ${totalAmount} 元。確認無誤請說出：結帳。或點選繼續辨識。`
+      : "購物車目前是空的，請點選繼續辨識商品。",
+    [cart.length, totalAmount]
+  );
+
+  // 語音指令
+  useVoiceCommand({
+    "結帳": () => { if (cart.length > 0) handleCheckoutClick(); },
+    "繼續辨識": () => { navigate("/scan"); }
+  });
 
   return (
     <div className="flex flex-col w-full flex-1 min-h-[60vh]">
@@ -81,9 +106,9 @@ export default function CartPage() {
                         item.image_url.startsWith("http")
                           ? item.image_url
                           : item.image_url.replace(
-                              "/uploads/product_photos/",
-                              "/photo/"
-                            )
+                            "/uploads/product_photos/",
+                            "/photo/"
+                          )
                       }
                       alt={item.name}
                       className="w-full h-full object-contain"
@@ -162,11 +187,10 @@ export default function CartPage() {
               data-testid="btn-checkout"
               disabled={cart.length === 0}
               onClick={handleCheckoutClick}
-              className={`px-10 py-5 rounded-2xl text-xl font-bold shadow-lg transition-transform hover:scale-105 active:scale-95 whitespace-nowrap ${
-                cart.length === 0
+              className={`px-10 py-5 rounded-2xl text-xl font-bold shadow-lg transition-transform hover:scale-105 active:scale-95 whitespace-nowrap ${cart.length === 0
                   ? "bg-slate-300 text-slate-500 cursor-not-allowed"
                   : "bg-green-600 text-white hover:bg-green-500"
-              }`}
+                }`}
             >
               🛒 結帳
             </button>

@@ -2,6 +2,8 @@ import React, { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCheckout } from "../context/CheckoutContext";
 import CameraView from "../components/CameraView";
+import { useVoiceCommand } from "../hooks/useVoiceCommand";
+import { useVoiceInstruction } from "../hooks/useVoiceInstruction";
 
 const isE2E =
   typeof window !== "undefined" &&
@@ -9,7 +11,7 @@ const isE2E =
 
 export default function EvidencePage() {
   const navigate = useNavigate();
-  const { cart, totalAmount, API_BASE_URL, resetAll, isTribalMember } =
+  const { cart, totalAmount, WORKER_URL, resetAll, isTribalMember } =
     useCheckout();
 
   const evidenceVideoRef = useRef(null);
@@ -49,35 +51,60 @@ export default function EvidencePage() {
     try {
       const formData = new FormData();
 
+      // 將拍照的 base64 轉為圖片檔案 (Blob)
       const response = await fetch(evidenceSnapshot);
       const photoBlob = await response.blob();
 
+      // 1. 放入購物車與金額
       formData.append("cart_items", JSON.stringify(cart));
       formData.append("total_amount", totalAmount);
+      
+      // 2. 標記交易類型（讓 Cloudflare 判斷是否要發 LINE 通知店長）
+      formData.append("transaction_type", isTribalMember ? "credit" : "cash");
+      
+      // 3. 放入存證照片
       formData.append("photo", photoBlob, "evidence.jpg");
 
-      const uploadResponse = await fetch(`${API_BASE_URL}/api/checkout`, {
+      // 走 VITE_WORKER_URL 環境變數 — 開發指 staging、正式切 production 都在 .env 換掉即可，不動 code。
+      const uploadResponse = await fetch(`${WORKER_URL}/checkout`, {
         method: "POST",
         body: formData,
+        // 瀏覽器會自動處理 multipart/form-data 的 boundary，所以不需手動設 headers
       });
 
       if (!uploadResponse.ok) {
-        throw new Error("上傳存證失敗");
+        const errorText = await uploadResponse.text();
+        throw new Error(`Cloudflare 處理失敗: ${errorText}`);
       }
 
+      // 結帳成功後的處理
       if (isTribalMember) {
         resetAll();
-        navigate("/");
+        navigate("/"); // 族人賒帳完回首頁，店長會在 LINE 收到確認通知
       } else {
-        navigate("/payment");
+        navigate("/payment"); // 一般遊客導向支付
       }
     } catch (error) {
-      console.error("上傳存證出錯:", error);
-      alert("上傳存證失敗，請重試");
+      console.error("結帳失敗細節:", error);
+      alert("結帳系統連線失敗，請檢查網路或聯繫飛鼠店長。");
     } finally {
       setIsSavingEvidence(false);
     }
   };
+
+  // 註冊語音指令
+  useVoiceCommand({
+    "拍照": () => { if (camReady && !isSavingEvidence) takeEvidencePhoto(); },
+    "送出": () => { if (evidenceSnapshot && !isSavingEvidence) submitEvidence(); },
+  });
+
+  // 語音指示
+  useVoiceInstruction(
+    evidenceSnapshot 
+      ? "已完成拍照，確認無誤請說出：送出，或點選重拍" 
+      : "請把人與商品一起拍進畫面，準備好後請說：拍照",
+    [evidenceSnapshot]
+  );
 
   return (
     <div className="flex flex-col md:flex-row w-full h-full gap-8">

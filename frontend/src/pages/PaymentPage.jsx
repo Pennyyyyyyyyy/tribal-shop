@@ -1,11 +1,28 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { useCheckout } from "../context/CheckoutContext";
+import { useVoiceCommand } from "../hooks/useVoiceCommand";
+import { useVoiceInstruction } from "../hooks/useVoiceInstruction";
 
 export default function PaymentPage() {
   const navigate = useNavigate();
   const { totalAmount, isTribalMember, setPaymentMethod, resetAll } =
     useCheckout();
+
+  // 語音指示
+  useVoiceInstruction(
+    isTribalMember
+      ? "請使用賒帳流程完成結帳"
+      : `本次消費金額 ${totalAmount} 元，請將現金放到旁邊的零錢罐，完成後請說出：我已投入現金`,
+    [isTribalMember, totalAmount]
+  );
+
+  // 語音指令
+  useVoiceCommand({
+    "我已投入現金": () => {
+      if (!isTribalMember) { setPaymentMethod("Cash"); resetAll(); navigate("/"); }
+    },
+  });
 
   if (isTribalMember) {
     return (

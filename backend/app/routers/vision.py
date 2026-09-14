@@ -1,6 +1,5 @@
 import io
 import os
-import requests
 import psycopg2
 
 from psycopg2.extras import RealDictCursor
@@ -10,12 +9,11 @@ from dotenv import load_dotenv
 
 from app.ai.predict import get_embedding
 
+load_dotenv(os.path.join(os.path.dirname(__file__), "..", "..", ".env"))
 
 router = APIRouter()
 
-load_dotenv()
-
-DB_CONFIG = os.getenv("DATABASE_URL")
+DB_CONFIG = os.getenv("SUPABASE_DB_URL")
 
 
 def get_db():

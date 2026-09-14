@@ -1,10 +1,62 @@
-backend/app/ai/__pycache__/__init__.cpython-314.pyc
-backend/app/ai/__pycache__/predict.cpython-314.pyc
-backend/app/ai/__pycache__/sync_local_to_supabase.cpython-314.pyc
-backend/__pycache__/main.cpython-314.pyc
-backend/__pycache__/main.cpython-314.pyc
-backend/__pycache__/main.cpython-314.pyc
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+.pytest_cache/
+.pyre/
+
+# Python virtual env
+.venv/
+venv/
+env/
+
+# Node
+node_modules/
+dist/
+build/
+*.log
+npm-debug.log*
+
+# Env / secrets
+.env
+.env.local
+.env.*.local
+backend/.env
+
+# Databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Uploads (user-generated content)
+backend/uploads/
+uploads/
+
+# 本地測試素材（含大型 media 檔，不放進 repo）
+tests_data/
+
+# Playwright
+.playwright-mcp/
+playwright-report/
+test-results/
+e2e/test-results/
+e2e/screenshots/
+
+# AI 開發暫存
 backend/app/ai/sync_local_to_supabase.py
+<<<<<<< HEAD
 backend/app/routers/__pycache__/vision.cpython-314.pyc
 
 
@@ -14,3 +66,17 @@ backend/app/routers/__pycache__/vision.cpython-314.pyc
 .venv/
 __pycache__/
 *.pyc
+=======
+
+# Claude Code 本地設定（如果不想 push）
+.claude/
+
+CLAUDE.md 
+CONSIGNOR_ROADMAP.md
+
+# supabase backup
+supabase/
+full_backup.sql
+
+worker/scripts/
+>>>>>>> d538b6bdd555115f67f7d3feb1db4169fdfb1a1f
