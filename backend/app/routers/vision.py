@@ -2,169 +2,251 @@ import io
 import os
 import psycopg2
 
-from psycopg2.extras import RealDictCursor
-from fastapi import APIRouter, UploadFile, File
-from PIL import Image
+from pathlib import Path
 from dotenv import load_dotenv
+from psycopg2.extras import RealDictCursor
+from fastapi import APIRouter, UploadFile, File, HTTPException
+from PIL import Image
 
 from app.ai.predict import get_embedding
 
-load_dotenv(os.path.join(os.path.dirname(__file__), "..", "..", ".env"))
 
 router = APIRouter()
 
-DB_CONFIG = os.getenv("SUPABASE_DB_URL")
 
+# ============================================================
+# .env
+# ============================================================
+
+BASE_DIR = Path(__file__).resolve().parents[2]
+ENV_PATH = BASE_DIR / ".env"
+
+load_dotenv(dotenv_path=ENV_PATH)
+
+DB_CONFIG = os.getenv("DATABASE_URL")
+
+
+# ============================================================
+# Database Connection
+# ============================================================
 
 def get_db():
 
     if not DB_CONFIG:
         raise RuntimeError(
-            "找不到 DATABASE_URL，請檢查 .env"
+            "找不到 DATABASE_URL，請檢查 backend/.env"
         )
 
-    return psycopg2.connect(
-        print('success'),
+    conn = psycopg2.connect(
         DB_CONFIG,
         sslmode="require"
     )
 
+    print("資料庫連線成功")
 
+    return conn
+
+
+# ============================================================
+# Vision - Detect Product
+# ============================================================
 
 @router.post("/detect-product")
 async def detect_product(
     image: UploadFile = File(...)
 ):
 
-    contents = await image.read()
+    # --------------------------------------------------------
+    # 1. 讀取圖片
+    # --------------------------------------------------------
 
-    pil_image = Image.open(
-        io.BytesIO(contents)
-    ).convert("RGB")
+    try:
+        contents = await image.read()
+
+        pil_image = Image.open(
+            io.BytesIO(contents)
+        ).convert("RGB")
+
+    except Exception as e:
+
+        raise HTTPException(
+            status_code=400,
+            detail=f"圖片讀取失敗: {str(e)}"
+        )
 
 
-    query_embedding = get_embedding(
-        pil_image
-    )
+    # --------------------------------------------------------
+    # 2. 圖片轉 embedding
+    # --------------------------------------------------------
 
+    try:
+        query_embedding = get_embedding(
+            pil_image
+        )
+
+    except Exception as e:
+
+        raise HTTPException(
+            status_code=500,
+            detail=f"Embedding 產生失敗: {str(e)}"
+        )
+
+
+    # pgvector 接受：
+    #
+    # [0.1,0.2,0.3,...]
+    #
     vector_str = (
         "["
-        +
-        ",".join(
+        + ",".join(
             map(
                 str,
                 query_embedding
             )
         )
-        +
-        "]"
+        + "]"
     )
 
 
-    conn = get_db()
+    # --------------------------------------------------------
+    # 3. 連接資料庫
+    # --------------------------------------------------------
 
-    cur = conn.cursor(
-        cursor_factory=RealDictCursor
-    )
-
+    conn = None
+    cur = None
 
     try:
+
+        conn = get_db()
+
+        cur = conn.cursor(
+            cursor_factory=RealDictCursor
+        )
+
+
+        # ====================================================
+        # 4. 找 Top 3 不同商品
+        #
+        # product_embeddings：
+        #
+        # 同一商品可能有很多不同角度的 embedding。
+        #
+        # DISTINCT ON(label_name)
+        # → 每個商品只留 similarity 最高的一張
+        #
+        # 最後再取整體 Top 3。
+        # ====================================================
+
         cur.execute(
             """
             SELECT
-                id,
                 label_name,
                 image_name,
-                embedding <=> %s::vector AS distance
-            FROM product_embeddings
+                distance
+            FROM (
+                SELECT DISTINCT ON (label_name)
+                    label_name,
+                    image_name,
+                    embedding <=> %s::vector AS distance
+                FROM product_embeddings
+                ORDER BY
+                    label_name,
+                    embedding <=> %s::vector ASC
+            ) AS best_per_label
             ORDER BY distance ASC
-            LIMIT 5
+            LIMIT 3
             """,
-            (vector_str,)
-        )
-
-        embedding_rows = cur.fetchall()
-
-
-        if not embedding_rows:
-
-            return {
-                "status": "error",
-                "message": "product_embeddings 沒有資料"
-            }
-
-
-
-        best_match = embedding_rows[0]
-
-        best_label = best_match[
-            "label_name"
-        ]
-
-        similarity = (
-            1
-            -
-            float(
-                best_match["distance"]
+            (
+                vector_str,
+                vector_str
             )
         )
 
+        matches = cur.fetchall()
 
 
-        cur.execute(
-            """
-            SELECT
-                id,
-                name,
-                price,
-                stock,
-                image_url,
-                label_name
-            FROM products
-            WHERE label_name = %s
-            LIMIT 1
-            """,
-            (best_label,)
-        )
+        # ----------------------------------------------------
+        # 沒有 embedding
+        # ----------------------------------------------------
 
-        product = cur.fetchone()
-
-
-        if not product:
+        if not matches:
 
             return {
                 "status": "error",
-                "message": (
-                    f"辨識到 {best_label}，"
-                    "但 products 中找不到對應商品"
-                )
+                "message":
+                    "product_embeddings 沒有可用資料"
             }
 
 
-        top_matches = []
+        predictions = []
 
-        for row in embedding_rows:
 
-            top_matches.append({
+        # ====================================================
+        # 5. 用 label_name 去 products 找商品資料
+        # ====================================================
 
-                "label_name":
-                    row["label_name"],
+        for match in matches:
 
-                "image_name":
-                    row["image_name"],
+            label_name = match[
+                "label_name"
+            ]
 
-                "similarity":
-                    1 - float(
-                        row["distance"]
-                    )
-            })
+            distance = float(
+                match["distance"]
+            )
 
-        return {
+            # cosine distance
+            # similarity = 1 - distance
+            similarity = (
+                1.0 - distance
+            )
 
-            "status":
-                "success",
 
-            "product": {
+            # ------------------------------------------------
+            # 查 products
+            # ------------------------------------------------
+
+            cur.execute(
+                """
+                SELECT
+                    id,
+                    name,
+                    price,
+                    stock,
+                    image_url,
+                    label_name
+                FROM products
+                WHERE label_name = %s
+                LIMIT 1
+                """,
+                (
+                    label_name,
+                )
+            )
+
+            product = cur.fetchone()
+
+
+            # ------------------------------------------------
+            # product_embeddings 有 label
+            # 但 products 沒有
+            # ------------------------------------------------
+
+            if not product:
+
+                print(
+                    "products 找不到 label_name:",
+                    label_name
+                )
+
+                continue
+
+
+            # ------------------------------------------------
+            # 組成原本 ScanPage 要的 prediction
+            # ------------------------------------------------
+
+            prediction = {
 
                 "id":
                     product["id"],
@@ -182,238 +264,215 @@ async def detect_product(
                     product["image_url"],
 
                 "label_name":
-                    product["label_name"]
-            },
+                    product["label_name"],
 
-            "recognition": {
-
-                "label_name":
-                    best_label,
-
-                "similarity":
+                "confidence":
                     similarity,
 
                 "matched_image":
-                    best_match[
-                        "image_name"
-                    ]
-            },
+                    match["image_name"]
+            }
 
-            "top_matches":
-                top_matches
+
+            predictions.append(
+                prediction
+            )
+
+
+        # ====================================================
+        # 6. 所有 label 都沒有對應 products
+        # ====================================================
+
+        if not predictions:
+
+            return {
+                "status": "error",
+                "message":
+                    "辨識到商品，但 products 中找不到對應 label_name"
+            }
+
+
+        # ====================================================
+        # 7. 回傳舊前端格式
+        #
+        # ScanPage 原本就是：
+        #
+        # data.predictions.map(...)
+        #
+        # 所以前端完全不用改
+        # ====================================================
+
+        return {
+            "status": "success",
+            "predictions": predictions
+        }
+
+
+    except psycopg2.Error as e:
+
+        print(
+            "Database Error:",
+            e
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail=f"資料庫錯誤: {str(e)}"
+        )
+
+
+    except Exception as e:
+
+        print(
+            "Detect Product Error:",
+            e
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail=f"辨識失敗: {str(e)}"
+        )
+
+
+    finally:
+
+        if cur:
+            cur.close()
+
+        if conn:
+            conn.close()
+
+
+# ============================================================
+# Test Database
+# ============================================================
+
+@router.get("/test-db")
+def test_db():
+
+    conn = None
+    cur = None
+
+    try:
+
+        conn = get_db()
+
+        cur = conn.cursor(
+            cursor_factory=RealDictCursor
+        )
+
+
+        # ----------------------------------------------------
+        # products 數量
+        # ----------------------------------------------------
+
+        cur.execute(
+            """
+            SELECT COUNT(*) AS count
+            FROM products
+            """
+        )
+
+        products_count = cur.fetchone()[
+            "count"
+        ]
+
+
+        # ----------------------------------------------------
+        # embeddings 數量
+        # ----------------------------------------------------
+
+        cur.execute(
+            """
+            SELECT COUNT(*) AS count
+            FROM product_embeddings
+            """
+        )
+
+        embeddings_count = cur.fetchone()[
+            "count"
+        ]
+
+
+        # ----------------------------------------------------
+        # embedding 類別數
+        # ----------------------------------------------------
+
+        cur.execute(
+            """
+            SELECT COUNT(
+                DISTINCT label_name
+            ) AS count
+            FROM product_embeddings
+            """
+        )
+
+        embedding_classes = cur.fetchone()[
+            "count"
+        ]
+
+
+        # ----------------------------------------------------
+        # products label 類別數
+        # ----------------------------------------------------
+
+        cur.execute(
+            """
+            SELECT COUNT(
+                DISTINCT label_name
+            ) AS count
+            FROM products
+            WHERE label_name IS NOT NULL
+            """
+        )
+
+        product_classes = cur.fetchone()[
+            "count"
+        ]
+
+
+        return {
+
+            "status":
+                "success",
+
+            "database":
+                "connected",
+
+            "products":
+                products_count,
+
+            "product_embeddings":
+                embeddings_count,
+
+            "embedding_classes":
+                embedding_classes,
+
+            "product_classes":
+                product_classes
+        }
+
+
+    except Exception as e:
+
+        print(
+            "Test DB Error:",
+            e
+        )
+
+        return {
+            "status":
+                "error",
+
+            "message":
+                str(e)
         }
 
 
     finally:
 
-        cur.close()
-        conn.close()
-
-
-@router.post("/sync-embedding")
-async def sync_embedding(
-    payload: dict
-):
-
-    record = payload.get(
-        "record"
-    )
-
-    if not record:
-
-        return {
-            "status": "error",
-            "message": "No record found"
-        }
-
-
-    product_id = record.get(
-        "id"
-    )
-
-    image_url = record.get(
-        "image_url"
-    )
-
-    label_name = record.get(
-        "label_name"
-    )
-
-
-    if not image_url:
-
-        return {
-            "status": "ignored",
-            "message": "No image_url provided"
-        }
-
-
-    if not label_name:
-
-        return {
-            "status": "ignored",
-            "message": "No label_name provided"
-        }
-
-
-    try:
-
-        resp = requests.get(
-            image_url,
-            timeout=10
-        )
-
-        resp.raise_for_status()
-
-
-        img = Image.open(
-            io.BytesIO(
-                resp.content
-            )
-        ).convert("RGB")
-
-
-        embedding = get_embedding(
-            img
-        )
-
-
-        vector_str = (
-            "["
-            +
-            ",".join(
-                map(
-                    str,
-                    embedding
-                )
-            )
-            +
-            "]"
-        )
-
-
-        conn = get_db()
-
-        cur = conn.cursor()
-
-
-        cur.execute(
-            """
-            INSERT INTO product_embeddings
-            (
-                label_name,
-                image_name,
-                embedding
-            )
-            VALUES
-            (
-                %s,
-                %s,
-                %s::vector
-            )
-            """,
-            (
-                label_name,
-                image_url,
-                vector_str
-            )
-        )
-
-
-        conn.commit()
-
-        cur.close()
-        conn.close()
-
-
-        return {
-
-            "status":
-                "success",
-
-            "product_id":
-                product_id,
-
-            "label_name":
-                label_name
-        }
-
-
-    except Exception as e:
-
-        return {
-            "status": "error",
-            "message": str(e)
-        }
-
-
-# =============================
-# TEST DATABASE
-# =============================
-
-@router.get("/test-db")
-def test_db():
-
-    try:
-
-        conn = get_db()
-
-        cur = conn.cursor()
-
-
-        cur.execute(
-            """
-            SELECT
-                COUNT(*)
-            FROM product_embeddings
-            """
-        )
-
-
-        embedding_count = (
-            cur.fetchone()[0]
-        )
-
-
-        cur.execute(
-            """
-            SELECT
-                COUNT(
-                    DISTINCT label_name
-                )
-            FROM product_embeddings
-            """
-        )
-
-
-        class_count = (
-            cur.fetchone()[0]
-        )
-
-
-        cur.close()
-        conn.close()
-
-
-        return {
-
-            "status":
-                "success",
-
-            "message":
-                "資料庫連線成功",
-
-            "embeddings":
-                embedding_count,
-
-            "classes":
-                class_count
-        }
-
-
-    except Exception as e:
-
-        return {
-            "status": "error",
-            "message": str(e)
-        }
+        if cur:
+            cur.close()
+
+        if conn:
+            conn.close()
