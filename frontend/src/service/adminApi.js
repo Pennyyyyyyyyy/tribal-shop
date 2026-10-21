@@ -1,6 +1,6 @@
 // Admin API client — 統一處理 base URL、JWT header、401 過期。
 // 對應 worker/src/handlers/adminApi.js 的路徑。
-const BASE = import.meta.env.VITE_WORKER_URL || "http://localhost:8787";
+const BASE = import.meta.env.VITE_WORKER_URL || "https://flying-squirrel-shop.com";
 const TOKEN_KEY = "tribal_admin_token";
 
 export function getToken() {

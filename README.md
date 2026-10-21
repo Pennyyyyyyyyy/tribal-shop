@@ -1,130 +1,100 @@
-# 部落誠實商店 Tribal Shop
+# 飛鼠商店 Tribal Shop（樹莓派現場運行版本）
 
-一套為部落小店設計的自助結帳系統。顧客掃描商品、確認購物車、並留下照片作為交易紀錄；店主則透過 LINE 即時收到每一筆交易通知。
+本分支（`rasberryVersion`）專門精簡給**店內樹莓派實體 POS 機**使用。
 
-## 專案背景
+---
 
-部落地區的小型商店常採「誠實商店」經營型態 — 無人看店、靠顧客自助結帳。本專案目標是把這個信任機制數位化：在保留原本互信精神的同時，讓店主能掌握庫存與帳務，並降低人為計算錯誤。
+## 系統整體架構
 
-## 技術棧
-
-**Backend**
-- Python  / FastAPI
-- Supabase（Postgres）為主資料庫，本地 SQLite 作為斷線備援
-- LINE Messaging API（line-bot-sdk）
-
-**Frontend**
-- React + Vite 
-- Tailwind CSS 3
-
-**Testing**
-- Playwright（E2E）
-
-## 系統架構
+本系統採用「**本地高速辨識 + 雲端無伺服器處理**」架構：
 
 ```
-┌────────────────┐         ┌─────────────────┐         ┌──────────────┐
-│  React SPA     │ ──────▶ │  FastAPI 後端    │ ──────▶ │  Supabase    │
-│  (結帳流程 UI)  │  REST   │  (路由 / 服務層) │         │  (Postgres)  │
-└────────────────┘         └─────────────────┘         └──────────────┘
-                                    │  斷線時 fallback        │
-                                    ▼                        │
-                            ┌──────────────┐  ◀── 啟動時同步 ──┘
-                            │ SQLite cache │
-                            └──────────────┘
-                                    │
-                                    ▼
-                            ┌──────────────┐
-                            │  LINE Bot    │ ── 推播交易通知給店主
-                            └──────────────┘
+┌────────────────────────────────────────────────────────┐
+│             🏪 店內樹莓派 (Raspberry Pi)               │
+│                                                        │
+│  ┌────────────────────────┐   ┌─────────────────────┐  │
+│  │ React 前端 POS 觸控螢幕 │   │ FastAPI 本地後端     │  │
+│  │ (http://localhost:5173)│   │ (http://127.0.0.1:8000)│
+│  └───────────┬────────────┘   └──────────▲──────────┘  │
+│              │ (結帳/商品)                │ (影像辨識) │
+│              │                            │            │
+│              │                     📷 店內外接鏡頭     │
+└──────────────┼────────────────────────────┼────────────┘
+               │ 外網 HTTPS                 │
+               ▼                            │
+┌──────────────────────────────┐            │
+│   Cloudflare Worker (雲端)   │            │
+│  flying-squirrel-shop.com    │            │
+└──────────────┬───────────────┘            │
+               │                            │
+               ▼                            │
+┌──────────────────────────────┐            │
+│       Supabase (雲端 DB)      │ ◀──────────┘
+│  - 商品/訂單/交易記錄        │ (pgvector 特徵比對)
+│  - Storage 結帳照片          │
+└──────────────────────────────┘
 ```
 
-### 資料庫雙後端設計
+- **樹莓派只負責**：
+  1. 連接店內實體 USB 鏡頭，透過本地 FastAPI 執行 EfficientNet 影像特徵萃取。
+  2. 運行 React 前端（提供現場顧客觸控結帳）。
+- **雲端 Worker 負責**：
+  - 商品清單、結帳扣庫存、LINE 訊息推播、店長手機後台管理（樹莓派不需跑 Worker）。
 
-部落門市網路品質不穩，因此資料層做了 graceful degradation：
+---
 
-- 啟動時優先連 Supabase Postgres，連不上時自動切換本地 SQLite
-- 連到 Postgres 時，會把 `products` / `member` 同步到本地 cache，確保斷線後仍可結帳
-- 對外提供統一的 `DBConnection` / `DBCursor` 介面，業務程式只寫一份 SQL（用 `%s` placeholder，wrapper 在 SQLite 模式下自動轉成 `?`）
-
-後端採路由 / 服務分層：路由層處理 HTTP 與資料驗證（Pydantic），服務層封裝 LINE 通知等外部整合。
-
-## 結帳流程
-
-前端是一個多步驟 wizard，狀態以 React Context（`CheckoutContext`）集中管理：
-
-```
-WELCOME → AUTH → INSTRUCTION → SCAN → CART
-    → EVIDENCE PHOTO → END
-```
-
-每一步都是獨立路由（`/welcome`、`/auth`、`/scan` …），支援前後切換並保留進度。送出訂單時以 `multipart/form-data` 一次帶上 JSON 訂單資料與證據照片。
-
-## 主要功能
-
-- **商品掃描** — 透過裝置相機辨識商品並自動加入購物車
-- **付款方式** — 賒帳（後續由管理介面銷帳）
-- **LINE 通知** — 每筆訂單自動推播給店主（含商品明細、金額、結帳照片）
-- **管理 API** — 商品 CRUD、價格調整、賒帳銷帳
-
-## API
-
-| Method | Endpoint                              | 說明                          |
-| ------ | ------------------------------------- | ----------------------------- |
-| GET    | `/api/products`                       | 取得商品清單                   |
-| POST   | `/api/checkout`                       | 送出訂單（multipart）         |
-| POST   | `/api/admin/repay`                    | 賒帳銷帳                      |
-| POST   | `/api/admin/product`                  | 新增商品                      |
-| PUT    | `/api/admin/product/{name}/price`     | 更新商品價格                  |
-| GET    | `/api/admin/product/{name}`           | 查詢單一商品                  |
-
-`/api/checkout` 使用 multipart：訂單 JSON 字串放在 `data` 欄位，證據照片放在 `image` 欄位。
-
-## 專案結構
+## 專案結構（樹莓派精簡版）
 
 ```
 tribal-shop/
-├── backend/
-│   ├── main.py                  # FastAPI 入口、路由掛載
+├── backend/                  # 本地 FastAPI 影像辨識服務
+│   ├── main.py               # 服務進入點 (port 8000)
 │   ├── app/
-│   │   ├── routers/             # products / checkout / admin / vision / line_webhook
-│   │   ├── services/            # LINE Bot 通知
-│   │   ├── models.py            # Pydantic 請求模型
-│   │   └── database.py          # Supabase / SQLite 雙後端 wrapper
+│   │   ├── ai/               # EfficientNet 模型與推論
+│   │   ├── routers/vision.py # 鏡頭擷取與商品比對 API
+│   │   └── database.py       # 本地 SQLite 備援
 │   └── requirements.txt
-├── frontend/
-│   └── src/
-│       ├── pages/               # 各步驟頁面（9 步）
-│       ├── context/             # CheckoutContext（共用流程狀態）
-│       └── App.jsx              # React Router 設定
-├── e2e/                         # Playwright 測試
+├── frontend/                 # 現場 POS 前端介面
+│   ├── src/                  # 結帳流程 UI
+│   ├── .env                  # 前端環境變數 (指到本地 8000 + 雲端 Worker)
+│   └── package.json
+├── start_pi.sh               # 樹莓派一鍵啟動腳本 (同時起後端與前端)
 └── README.md
 ```
 
-## 啟動方式
+---
 
-### Backend
+## 樹莓派快速啟動
+
+### 1. 初次安裝依賴
 
 ```bash
+# 後端 Python 依賴
 cd backend
 python3 -m venv ../.venv
-source ../.venv/bin/activate     # Windows: ..\.venv\Scripts\activate
+source ../.venv/bin/activate
 pip install -r requirements.txt
-python3 main.py                  # http://127.0.0.1:8000
-```
 
-### Frontend
-
-```bash
-cd frontend
+# 前端 Node 依賴
+cd ../frontend
 npm install
-npm run dev                      # Vite dev server，自動 proxy 到後端
+npm run build   # 編譯生產環境靜態檔
 ```
 
-### E2E 測試
+### 2. 環境設定檔 (`frontend/.env`)
+確認 `frontend/.env` 包含以下內容：
+```ini
+VITE_API_BASE_URL=http://127.0.0.1:8000
+VITE_WORKER_URL=https://flying-squirrel-shop.com
+```
 
+### 3. 一鍵啟動
+
+在專案根目錄執行：
 ```bash
-npm install                      # 在專案根目錄
-npx playwright test
+./start_pi.sh
 ```
-
+此腳本會自動：
+1. 在背景啟動本地 FastAPI 後端 (`http://127.0.0.1:8000`)
+2. 啟動前端 POS 介面 (`http://localhost:5173`)
+3. 按 `Ctrl + C` 可一次關閉所有服務。

@@ -46,7 +46,7 @@ ROI_CONFIG_PATH = (
 
 load_dotenv(dotenv_path=ENV_PATH)
 
-DB_CONFIG = os.getenv("DATABASE_URL")
+DB_CONFIG = os.getenv("DATABASE_URL") or os.getenv("SUPABASE_DB_URL")
 
 
 # ============================================================
@@ -57,7 +57,7 @@ def get_db():
 
     if not DB_CONFIG:
         raise RuntimeError(
-            "找不到 DATABASE_URL，請檢查 backend/.env"
+            "找不到 DATABASE_URL 或 SUPABASE_DB_URL，請檢查 backend/.env"
         )
 
     return psycopg2.connect(
