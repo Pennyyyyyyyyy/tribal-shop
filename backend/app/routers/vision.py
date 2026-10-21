@@ -1,7 +1,6 @@
 import io
 import os
 import json
-import requests
 
 import psycopg2
 
@@ -47,7 +46,7 @@ ROI_CONFIG_PATH = (
 
 load_dotenv(dotenv_path=ENV_PATH)
 
-DB_CONFIG = os.getenv("DATABASE_URL") or os.getenv("SUPABASE_DB_URL")
+DB_CONFIG = os.getenv("DATABASE_URL")
 
 
 # ============================================================
@@ -58,7 +57,7 @@ def get_db():
 
     if not DB_CONFIG:
         raise RuntimeError(
-            "找不到 DATABASE_URL 或 SUPABASE_DB_URL，請檢查 backend/.env"
+            "找不到 DATABASE_URL，請檢查 backend/.env"
         )
 
     return psycopg2.connect(
@@ -577,213 +576,6 @@ async def detect_product(
         "predictions":
             predictions
     }
-
-
-# ============================================================
-# Sync Embedding（Supabase Webhook → 下載照片 → 產生向量 → 寫入 product_embeddings）
-# ============================================================
-# 設計：
-#   - Supabase Database Webhook 在 training_data.image4 被填入時（4張照片收齊），
-#     呼叫此端點，傳入含 image_url 與 label_name 的 record。
-#   - 後端下載圖片、跑 EfficientNet 特徵抽取、寫入 product_embeddings 資料表，
-#     讓辨識系統立即能認出這個新商品。
-# ============================================================
-
-# ============================================================
-# Helper Functions: Image Embedding & Sync
-# ============================================================
-
-def _insert_single_embedding(conn, label_name: str, image_url: str):
-    """下載圖片、抽取 EfficientNet 1280 維特徵向量並寫入 product_embeddings。"""
-    resp = requests.get(image_url, timeout=15)
-    resp.raise_for_status()
-
-    img = Image.open(io.BytesIO(resp.content)).convert("RGB")
-    embedding = get_embedding(img)
-    vector_str = "[" + ",".join(map(str, embedding)) + "]"
-
-    with conn.cursor() as cur:
-        cur.execute(
-            """
-            INSERT INTO product_embeddings
-            (label_name, image_name, embedding)
-            VALUES (%s, %s, %s::vector)
-            """,
-            (label_name, image_url, vector_str)
-        )
-    conn.commit()
-
-
-def _resolve_product_label(conn, product_id: int, candidate_label: str = None) -> str:
-    """確認商品的 label_name，若為空則以候選名稱或商品名稱更新並回傳。"""
-    with conn.cursor(cursor_factory=RealDictCursor) as cur:
-        cur.execute("SELECT id, name, label_name FROM products WHERE id = %s", (product_id,))
-        prod = cur.fetchone()
-        if not prod:
-            return candidate_label or f"product_{product_id}"
-        if prod.get("label_name"):
-            return prod["label_name"]
-        
-        chosen = candidate_label if (candidate_label and candidate_label != "PENDING") else prod["name"]
-        cur.execute("UPDATE products SET label_name = %s WHERE id = %s", (chosen, product_id))
-        conn.commit()
-        return chosen
-
-
-def _sync_product_images(conn, product_id: int, candidate_label: str = None, candidate_urls: list = None) -> dict:
-    """處理單一商品的所有照片特徵萃取，並在成功後標記 products.trained = true。"""
-    urls = list(candidate_urls or [])
-
-    with conn.cursor(cursor_factory=RealDictCursor) as cur:
-        # 從 training_data 抓取收齊的 4 張照片
-        cur.execute(
-            "SELECT image1, image2, image3, image4, english_name FROM training_data WHERE product_id = %s",
-            (product_id,)
-        )
-        t = cur.fetchone()
-        if t:
-            for k in ["image1", "image2", "image3", "image4"]:
-                if t.get(k) and t[k] not in urls:
-                    urls.append(t[k])
-            if not candidate_label and t.get("english_name") and t["english_name"] != "PENDING":
-                candidate_label = t["english_name"]
-
-        # 若 training_data 沒有，則 fallback 到 products.image_url
-        if not urls:
-            cur.execute("SELECT image_url, label_name, name FROM products WHERE id = %s", (product_id,))
-            p = cur.fetchone()
-            if p and p.get("image_url"):
-                urls.append(p["image_url"])
-            if p and not candidate_label:
-                candidate_label = p.get("label_name") or p.get("name")
-
-    label = _resolve_product_label(conn, product_id, candidate_label)
-
-    synced_count = 0
-    errors = []
-    for url in urls:
-        if not url:
-            continue
-        try:
-            _insert_single_embedding(conn, label, url)
-            synced_count += 1
-        except Exception as e:
-            errors.append(f"{url}: {str(e)}")
-
-    if synced_count > 0:
-        with conn.cursor() as cur:
-            cur.execute("UPDATE products SET trained = true WHERE id = %s", (product_id,))
-        conn.commit()
-
-    return {
-        "status": "success" if synced_count > 0 else "error",
-        "product_id": product_id,
-        "label_name": label,
-        "synced_count": synced_count,
-        "total_images": len(urls),
-        "errors": errors if errors else None
-    }
-
-
-# ============================================================
-# Sync Embedding 端點（Supabase Webhook / 手動觸發）
-# ============================================================
-
-@router.post("/sync-embedding")
-async def sync_embedding(payload: dict):
-    """
-    支援：
-    1. Supabase Database Webhook (傳入 record 物件，支援 products 或 training_data 表)
-    2. 直傳格式: {"product_id": 43} 或 {"image_url": "...", "label_name": "..."}
-    """
-    record = payload.get("record") or payload
-
-    if not record:
-        return {"status": "error", "message": "No record found"}
-
-    product_id = record.get("product_id") or record.get("id")
-    image_url = record.get("image_url")
-    label_name = record.get("label_name") or record.get("english_name")
-
-    conn = get_db()
-    try:
-        # 情境 A: 帶有 product_id，完整同步該商品收齊的所有訓練照片 (image1..4)
-        if product_id:
-            # 檢查是否有傳入單一圖片或多張圖片
-            candidate_urls = []
-            if image_url:
-                candidate_urls.append(image_url)
-            for k in ["image1", "image2", "image3", "image4"]:
-                if record.get(k):
-                    candidate_urls.append(record[k])
-
-            result = _sync_product_images(
-                conn,
-                int(product_id),
-                candidate_label=label_name,
-                candidate_urls=candidate_urls
-            )
-            return result
-
-        # 情境 B: 只有單張 image_url 與 label_name
-        if not image_url or not label_name:
-            return {"status": "ignored", "message": "需提供 product_id，或同時提供 image_url 與 label_name"}
-
-        _insert_single_embedding(conn, label_name, image_url)
-        return {
-            "status": "success",
-            "image_url": image_url,
-            "label_name": label_name
-        }
-
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
-    finally:
-        conn.close()
-
-
-@router.post("/sync-product/{product_id}")
-async def sync_product_endpoint(product_id: int):
-    """針對指定商品 ID，抓取 training_data 的所有照片產生向量特徵並標記 trained=true。"""
-    conn = get_db()
-    try:
-        return _sync_product_images(conn, product_id)
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
-    finally:
-        conn.close()
-
-
-@router.post("/sync-untrained")
-async def sync_all_untrained_endpoint():
-    """自動掃描所有尚未訓練 (trained is not true) 且已上傳照片的商品，批次產生 embedding。"""
-    conn = get_db()
-    try:
-        with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute("""
-                SELECT p.id, p.name 
-                FROM products p
-                WHERE (p.trained IS NOT TRUE OR p.trained = FALSE)
-                ORDER BY p.id ASC
-            """)
-            untrained = cur.fetchall()
-
-        results = []
-        for p in untrained:
-            res = _sync_product_images(conn, p["id"])
-            if res.get("synced_count", 0) > 0:
-                results.append(res)
-
-        return {
-            "status": "success",
-            "scanned": len(untrained),
-            "processed": len(results),
-            "details": results
-        }
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
-    finally:
-        conn.close()
 
 
 # ============================================================
