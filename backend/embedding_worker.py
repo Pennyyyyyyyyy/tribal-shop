@@ -24,6 +24,10 @@ DB_URL = os.getenv("SUPABASE_DB_URL")
 API_URL = os.getenv(
     "EMBEDDING_API_URL", "http://127.0.0.1:8000/vision/generate-embeddings"
 ).rstrip("/")
+WORKER_CALLBACK_URL = os.getenv(
+    "WORKER_CALLBACK_URL",
+    "https://flying-squirrel-shop-staging.autocheckout2025.workers.dev/api/internal/embedding-complete"
+)
 POLL_SECONDS = max(1, int(os.getenv("EMBEDDING_POLL_SECONDS", "5")))
 # Augmenting and embedding 120 images on a CPU can take some time.
 REQUEST_TIMEOUT = max(30, int(os.getenv("EMBEDDING_REQUEST_TIMEOUT", "900")))
@@ -113,10 +117,29 @@ def process_job(job):
         error = str(exc)[:4000]
         logger.exception("任務失敗 job=%s product=%s", job_id, product_id)
         finish_job(job_id, "failed", error)
+        if WORKER_CALLBACK_URL:
+            try:
+                requests.post(
+                    WORKER_CALLBACK_URL,
+                    json={"product_id": product_id, "status": "failed", "error": error},
+                    timeout=10,
+                )
+            except Exception as notify_err:
+                logger.warning("回報 Worker 失敗通知失敗: %s", notify_err)
         return
 
     finish_job(job_id, "completed")
     logger.info("任務完成 job=%s product=%s，建立 %s 筆向量", job_id, product_id, result["embeddings_created"])
+    if WORKER_CALLBACK_URL:
+        try:
+            requests.post(
+                WORKER_CALLBACK_URL,
+                json={"product_id": product_id, "status": "completed"},
+                timeout=10,
+            )
+            logger.info("已發送 AI 學習完成通知至 Worker")
+        except Exception as notify_err:
+            logger.warning("回報 Worker 完成通知失敗: %s", notify_err)
 
 
 def main():
