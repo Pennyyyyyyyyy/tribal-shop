@@ -33,7 +33,7 @@ cd "$DIR/frontend"
 # 若已有 dist 且安裝了 serve，優先用輕量 serve，否則用 npm run dev
 if [ -d "dist" ] && command -v npx >/dev/null 2>&1; then
     echo "   使用生產環境打包 (dist) 啟動於 port 5173..."
-    npx serve -s dist -l 5173 &
+    npx --yes serve -s dist -l 5173 &
     FRONTEND_PID=$!
 else
     echo "   使用開發模式 npm run dev..."
@@ -46,7 +46,7 @@ echo "=============================================================="
 echo "✅ 飛鼠商店現場系統已啟動！"
 echo "   - 本地辨識後端: http://localhost:8000"
 echo "   - 現場 POS 畫面: http://localhost:5173"
-echo "   - 雲端 Worker 接口: https://flying-squirrel-shop.com"
+echo "   - 雲端 Worker 接口: https://flying-squirrel-shop-staging.autocheckout2025.workers.dev"
 echo "   按 Ctrl+C 可一鍵關閉所有服務"
 echo "=============================================================="
 

@@ -7,9 +7,9 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
 
-// Worker：商品列表、結帳、admin（正式線上網址）。
+// Worker：商品列表、結帳、admin。自動移除結尾斜線避免產生雙斜線 //。
 const WORKER_URL =
-  import.meta.env.VITE_WORKER_URL || "https://flying-squirrel-shop.com";
+  (import.meta.env.VITE_WORKER_URL || "https://flying-squirrel-shop.com").replace(/\/+$/, "");
 
 const MOCK_ITEMS = [
   { id: 1, name: "蘋果", price: 30, image: "🍎" },
