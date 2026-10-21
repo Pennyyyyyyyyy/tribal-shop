@@ -1,13 +1,12 @@
-from fastapi import FastAPI
-from fastapi.staticfiles import StaticFiles
-from fastapi.middleware.cors import CORSMiddleware
-from app.database import init_db
-from app.routers import products, checkout, admin, line_webhook, vision
-
 import subprocess
 import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from app.routers import vision
 
 
 # Embedding Worker 自動啟動與關閉
@@ -40,12 +39,9 @@ async def lifespan(app: FastAPI):
         print("[FastAPI] Embedding Worker 已停止")
 
 
-# 1. 初始化資料庫
-init_db()
+app = FastAPI(title="Flying Squirrel Shop Vision API", lifespan=lifespan)
 
-app = FastAPI(lifespan=lifespan)
-
-# 2. 設定 CORS (讓前端 React 可以連線)
+# 設定 CORS (讓前端 React 可以連線)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -53,17 +49,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 3. 掛載圖片資料夾 (讓前端與 LINE 可以讀取上傳的照片)
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
-
-# 4. 註冊路由 (功能模組)
-app.include_router(products.router)
-app.include_router(checkout.router)
-app.include_router(admin.router)
+# 註冊路由 (專責樹莓派本地 Vision 影像辨識與特徵抽取)
 app.include_router(vision.router, prefix="/vision", tags=["Vision"])
-app.include_router(line_webhook.router)
+
+
+@app.get("/")
+def root():
+    return {"status": "ok", "service": "vision-api"}
+
 
 if __name__ == "__main__":
     import uvicorn
-    # 啟動伺服器
     uvicorn.run(app, host="127.0.0.1", port=8000)
