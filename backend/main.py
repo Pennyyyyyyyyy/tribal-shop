@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import init_db
-from app.routers import products, checkout, admin, line_webhook, vision
+from app.routers import products, checkout, admin, vision
 
 
 # 1. 初始化資料庫
@@ -26,7 +26,6 @@ app.include_router(products.router)
 app.include_router(checkout.router)
 app.include_router(admin.router)
 app.include_router(vision.router, prefix="/vision", tags=["Vision"])
-app.include_router(line_webhook.router)
 
 if __name__ == "__main__":
     import uvicorn

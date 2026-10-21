@@ -1,6 +1,5 @@
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 from app.database import get_db
-from app.services.line_service import send_line_notification
 import json
 import shutil
 import uuid
@@ -63,18 +62,5 @@ async def checkout(
     detail_lines = [f"  {it['name']} x{it.get('quantity',1)}" for it in items]
     detail_str = "\n".join(detail_lines)
 
-    # 8. 組合 LINE 通知訊息
-    msg = (
-        f"【結帳通知】\n"
-        f"類型: 族人賒帳\n"
-        f"商品:\n{detail_str}\n"
-        f"總金額: ${total_amount}"
-    )
-    send_line_notification(msg, image_path=image_path if image_path else None)
-
-    # 9. 發送庫存警報
-    if low_stock_warnings:
-        warn_msg = "🚨【庫存告急】請補貨：\n" + "\n".join(low_stock_warnings)
-        send_line_notification(warn_msg)
-
+    # 8. 結帳完成
     return {"status": "success", "message": "結帳完成"}

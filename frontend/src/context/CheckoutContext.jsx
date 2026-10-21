@@ -9,7 +9,7 @@ const API_BASE_URL =
 
 // Worker：商品列表、結帳、admin。自動移除結尾斜線避免產生雙斜線 //。
 const WORKER_URL =
-  (import.meta.env.VITE_WORKER_URL || "https://flying-squirrel-shop.com").replace(/\/+$/, "");
+  (import.meta.env.VITE_WORKER_URL || "https://flying-squirrel-shop-staging.autocheckout2025.workers.dev").replace(/\/+$/, "");
 
 const MOCK_ITEMS = [
   { id: 1, name: "蘋果", price: 30, image: "🍎" },
