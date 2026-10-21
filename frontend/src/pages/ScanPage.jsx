@@ -9,7 +9,6 @@ import { useNavigate } from "react-router-dom";
 import { useCheckout } from "../context/CheckoutContext";
 import CameraView from "../components/CameraView";
 import RoiEditor from "../components/RoiEditor";
-import { useVoiceCommand } from "../hooks/useVoiceCommand";
 import { useVoiceInstruction } from "../hooks/useVoiceInstruction";
 
 
@@ -972,78 +971,19 @@ export default function ScanPage() {
 
 
 
-  const stableCommands =
-    useMemo(
-      () => ({
-
-
-        "拍照": () =>
-          commandsRef.current[
-            "拍照"
-          ]?.(),
-
-
-        "辨識": () =>
-          commandsRef.current[
-            "辨識"
-          ]?.(),
-
-
-        "重新辨識": () =>
-          commandsRef.current[
-            "重新辨識"
-          ]?.(),
-
-
-        "結帳": () =>
-          commandsRef.current[
-            "結帳"
-          ]?.(),
-
-
-        "查看清單": () =>
-          commandsRef.current[
-            "查看清單"
-          ]?.(),
-
-      }),
-
-      []
-    );
-
-
-  useVoiceCommand(
-    stableCommands
-  );
-
-
   // ==========================================================
   // 語音指示
   // ==========================================================
 
   useVoiceInstruction(
-
     developerMode
-
       ? "目前為辨識區校正模式"
-
-      : scanPhase ===
-        "SCANNING"
-
+      : scanPhase === "SCANNING"
       ? "正在辨識中，請稍候"
-
-      : scanPhase ===
-        "RESULT"
-
+      : scanPhase === "RESULT"
       ? "辨識完成，請點選商品加入購物車，或重新辨識"
-
-      : "請將商品放入辨識區，並說出拍照進行辨識",
-
-    [
-      scanPhase,
-      developerMode,
-    ]
-
+      : "請將商品放入辨識區，點擊拍照進行辨識",
+    [scanPhase, developerMode]
   );
 
 
