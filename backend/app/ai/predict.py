@@ -36,3 +36,11 @@ def get_embedding(image):
         embedding = vector_model(input_tensor)
     
     return embedding.cpu().numpy().flatten().tolist()
+def get_embeddings(images):
+    embeddings = []
+
+    for image in images:
+        embedding = get_embedding(image)
+        embeddings.append(embedding)
+
+    return embeddings
