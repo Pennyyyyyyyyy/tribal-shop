@@ -42,6 +42,10 @@ if [ ! -f "$DIR/frontend/.env" ] && [ -f "$DIR/frontend/.env.example" ]; then
     cp "$DIR/frontend/.env.example" "$DIR/frontend/.env"
 fi
 
+# 1.2 設定 ARM CPU 指令集相容環境變數 (防範 OpenBLAS / NumPy / PyTorch 誤判指令集導致無效指令 SIGILL)
+export OPENBLAS_CORETYPE=ARMV8
+export OMP_NUM_THREADS=2
+
 # 2. 啟動 FastAPI 本地後端 (鏡頭影像辨識)
 echo "🐍 啟動本地 FastAPI 後端 (port 8000)..."
 cd "$DIR/backend"
