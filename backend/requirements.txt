@@ -10,6 +10,8 @@ python-multipart>=0.0.9
 pydantic>=2.7.0
 
 # 影像辨識與 AI 模型 (EfficientNet 特徵萃取與影像增強)
+# 現場推論優先採用 ONNX Runtime (100% 相容樹莓派 CPU，免除 PyTorch SIGILL)
+onnxruntime>=1.16.0
 torch>=2.0.0
 torchvision>=0.15.0
 Pillow>=10.0.0
