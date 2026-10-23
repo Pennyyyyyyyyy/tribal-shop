@@ -9,14 +9,31 @@ cd "$DIR"
 
 echo "🌲 正在啟動飛鼠商店 (樹莓派現場系統)..."
 
-# 1. 檢查 Python 虛擬環境
-if [ -d ".venv" ]; then
+# 1. 檢查 Python 虛擬環境 (防止多個重複 venv 造成衝突)
+if [ -d "$DIR/.venv" ] && [ -d "$DIR/backend/.venv" ]; then
+    echo "⚠️  警告：偵測到多個虛擬環境 ($DIR/.venv 與 $DIR/backend/.venv)！"
+    echo "👉 系統將統一使用專案根目錄的 $DIR/.venv。"
+    echo "💡 建議刪除 backend/.venv (執行 rm -rf backend/.venv) 以免套件版本混淆。"
     PYTHON_EXEC="$DIR/.venv/bin/python"
-elif [ -d "backend/.venv" ]; then
+elif [ -d "$DIR/.venv" ]; then
+    PYTHON_EXEC="$DIR/.venv/bin/python"
+elif [ -d "$DIR/backend/.venv" ]; then
+    echo "ℹ️  使用 backend/.venv 虛擬環境 (建議後續統一遷移至根目錄 .venv)"
     PYTHON_EXEC="$DIR/backend/.venv/bin/python"
 else
     echo "⚠️ 找不到 .venv，使用系統 python3"
     PYTHON_EXEC="python3"
+fi
+
+# 1.1 檢查環境變數檔案 (.env)
+if [ ! -f "$DIR/backend/.env" ] && [ -f "$DIR/backend/.env.example" ]; then
+    echo "⚠️ 找不到 backend/.env，自動由 backend/.env.example 建立預設檔..."
+    cp "$DIR/backend/.env.example" "$DIR/backend/.env"
+fi
+
+if [ ! -f "$DIR/frontend/.env" ] && [ -f "$DIR/frontend/.env.example" ]; then
+    echo "⚠️ 找不到 frontend/.env，自動由 frontend/.env.example 建立預設檔..."
+    cp "$DIR/frontend/.env.example" "$DIR/frontend/.env"
 fi
 
 # 2. 啟動 FastAPI 本地後端 (鏡頭影像辨識)

@@ -66,27 +66,29 @@ tribal-shop/
 
 ## 樹莓派快速啟動
 
-### 1. 初次安裝依賴
+詳細樹莓派連線部署與防雷手冊請參閱 📄 [DEPLOYMENT_PI.md](DEPLOYMENT_PI.md)。
+
+### 1. 初次安裝依賴（統一在專案根目錄，防範多重 venv 衝突）
 
 ```bash
-# 後端 Python 依賴
-cd backend
-python3 -m venv ../.venv
-source ../.venv/bin/activate
-pip install -r requirements.txt
+# 後端 Python 依賴（在專案根目錄建立唯一 .venv）
+python3 -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip
+pip install -r backend/requirements.txt
 
-# 前端 Node 依賴
-cd ../frontend
+# 前端 Node 依賴與打包
+cd frontend
 npm install
 npm run build   # 編譯生產環境靜態檔
+cd ..
 ```
 
-### 2. 環境設定檔 (`frontend/.env`)
-確認 `frontend/.env` 包含以下內容：
-```ini
-VITE_API_BASE_URL=http://127.0.0.1:8000
-VITE_WORKER_URL=https://flying-squirrel-shop.com
-```
+### 2. 環境設定檔 (`.env`)
+
+系統在初次執行 `start_pi.sh` 時會自動由範本生成，亦可手動建立：
+- `backend/.env` (由 `backend/.env.example` 複製，設定 Supabase 連線)
+- `frontend/.env` (由 `frontend/.env.example` 複製，指向本地後端與雲端 Worker)
 
 ### 3. 一鍵啟動
 
@@ -95,6 +97,8 @@ VITE_WORKER_URL=https://flying-squirrel-shop.com
 ./start_pi.sh
 ```
 此腳本會自動：
-1. 在背景啟動本地 FastAPI 後端 (`http://127.0.0.1:8000`)
-2. 啟動前端 POS 介面 (`http://localhost:5173`)
-3. 按 `Ctrl + C` 可一次關閉所有服務。
+1. 檢測並自動套用專案根目錄的唯一 `.venv` 虛擬環境
+2. 在背景啟動本地 FastAPI 後端 (`http://127.0.0.1:8000`) 與 Embedding Worker
+3. 監聽樹莓派 GPIO 27 投幣機脈衝
+4. 啟動前端 POS 介面 (`http://localhost:5173`)
+5. 按 `Ctrl + C` 可一次乾淨關閉所有服務。
