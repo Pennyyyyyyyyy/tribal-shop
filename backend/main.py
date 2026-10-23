@@ -1,5 +1,6 @@
 import os
-# 設定 ARM CPU 基礎指令集，避免樹莓派上 OpenBLAS/PyTorch 誤判觸發 SIGILL (無效指令)
+# 設定 ARM CPU 基礎指令集，避免樹莓派上 OpenBLAS/ATen/PyTorch 誤判觸發 SIGILL (無效指令)
+os.environ.setdefault("ATEN_CPU_CAPABILITY", "default")
 os.environ.setdefault("OPENBLAS_CORETYPE", "ARMV8")
 os.environ.setdefault("OMP_NUM_THREADS", "2")
 

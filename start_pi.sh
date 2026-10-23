@@ -42,7 +42,8 @@ if [ ! -f "$DIR/frontend/.env" ] && [ -f "$DIR/frontend/.env.example" ]; then
     cp "$DIR/frontend/.env.example" "$DIR/frontend/.env"
 fi
 
-# 1.2 設定 ARM CPU 指令集相容環境變數 (防範 OpenBLAS / NumPy / PyTorch 誤判指令集導致無效指令 SIGILL)
+# 1.2 設定 ARM CPU 指令集相容環境變數 (防範 OpenBLAS / ATen 誤判指令集導致無效指令 SIGILL)
+export ATEN_CPU_CAPABILITY=default
 export OPENBLAS_CORETYPE=ARMV8
 export OMP_NUM_THREADS=2
 
