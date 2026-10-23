@@ -1,27 +1,49 @@
-from PIL import Image
-from torchvision import transforms
+import random
+from PIL import Image, ImageEnhance
 
 
 TARGET_IMAGES = 120
 
 
-# 與原本 augment_dataset.py 使用完全相同的 augmentation
-augment = transforms.Compose([
-    transforms.RandomRotation(20),
+def augment(img: Image.Image) -> Image.Image:
+    """
+    純 Pillow 影像增強（等價於 torchvision.transforms.Compose）：
+    - RandomRotation(20)
+    - RandomHorizontalFlip()
+    - ColorJitter(brightness=0.4, contrast=0.4, saturation=0.3)
+    - RandomResizedCrop(224, scale=(0.7, 1.0))
+    完全免除 torchvision 與 PyTorch 依賴，節省樹莓派資源。
+    """
+    # 1. 隨機旋轉 (-20 ~ +20 度)
+    angle = random.uniform(-20, 20)
+    img = img.rotate(angle, resample=Image.BILINEAR)
 
-    transforms.RandomHorizontalFlip(),
+    # 2. 隨機水平翻轉 (50% 機率)
+    if random.random() < 0.5:
+        img = img.transpose(Image.FLIP_LEFT_RIGHT)
 
-    transforms.ColorJitter(
-        brightness=0.4,
-        contrast=0.4,
-        saturation=0.3,
-    ),
+    # 3. 顏色隨機擾動 (亮度、對比度、飽和度)
+    b_factor = random.uniform(0.6, 1.4)
+    img = ImageEnhance.Brightness(img).enhance(b_factor)
 
-    transforms.RandomResizedCrop(
-        224,
-        scale=(0.7, 1.0),
-    ),
-])
+    c_factor = random.uniform(0.6, 1.4)
+    img = ImageEnhance.Contrast(img).enhance(c_factor)
+
+    s_factor = random.uniform(0.7, 1.3)
+    img = ImageEnhance.Color(img).enhance(s_factor)
+
+    # 4. 隨機裁切並縮放至 224x224
+    w, h = img.size
+    area = w * h
+    target_area = random.uniform(0.7, 1.0) * area
+    aspect_ratio = random.uniform(3.0 / 4.0, 4.0 / 3.0)
+    crop_w = int(round((target_area * aspect_ratio) ** 0.5))
+    crop_h = int(round((target_area / aspect_ratio) ** 0.5))
+    if crop_w <= w and crop_h <= h:
+        left = random.randint(0, w - crop_w)
+        top = random.randint(0, h - crop_h)
+        img = img.crop((left, top, left + crop_w, top + crop_h))
+    return img.resize((224, 224), Image.BILINEAR)
 
 
 def augment_to_target(

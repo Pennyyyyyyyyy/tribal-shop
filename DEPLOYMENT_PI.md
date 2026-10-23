@@ -79,7 +79,7 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install --upgrade pip
 
-# 4. 安裝後端所需依賴 (PyTorch、Torchvision、FastAPI、psycopg2 等)
+# 4. 安裝後端所需依賴 (ONNX Runtime、FastAPI、psycopg2 等輕量高速套件)
 pip install -r backend/requirements.txt
 ```
 

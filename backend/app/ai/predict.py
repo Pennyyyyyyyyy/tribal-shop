@@ -10,7 +10,7 @@ BASE_AI_DIR = Path(__file__).resolve().parent
 ONNX_MODEL_PATH = BASE_AI_DIR / "best_efficientnet_model.onnx"
 PT_MODEL_PATH = BASE_AI_DIR / "best_efficientnet_model.pt"
 
-# 優先使用 ONNX Runtime (樹莓派 ARM CPU 上執行更快且具 100% 指令集相容性，免除 PyTorch SIGILL)
+# 優先使用 ONNX Runtime (樹莓派現場最佳化引擎，100% 通用 ARM CPU，免除 PyTorch SIGILL)
 USE_ONNX = False
 ort_session = None
 
@@ -25,28 +25,31 @@ try:
             providers=["CPUExecutionProvider"]
         )
         USE_ONNX = True
-        print("[AI] ✅ 成功啟用 ONNX Runtime EfficientNet 推論引擎 (相容 ARM64 / 樹莓派)")
+        print("[AI] ✅ 成功啟用 ONNX Runtime EfficientNet 推論引擎")
 except Exception as e:
-    logger.warning("無法載入 ONNX Runtime: %s，將使用 PyTorch 備援", e)
+    logger.warning("未啟用 ONNX Runtime (%s)，嘗試使用 PyTorch 備援", e)
     USE_ONNX = False
 
 if not USE_ONNX:
-    import torch
-    import torch.nn as nn
-    from torchvision import transforms
-    from app.ai.model import load_model
+    try:
+        import torch
+        import torch.nn as nn
+        from torchvision import transforms
+        from app.ai.model import load_model
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    raw_model = load_model(51, str(PT_MODEL_PATH), device)
-    raw_model.classifier = nn.Identity()
-    raw_model.eval()
-    vector_model = raw_model
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        raw_model = load_model(51, str(PT_MODEL_PATH), device)
+        raw_model.classifier = nn.Identity()
+        raw_model.eval()
+        vector_model = raw_model
 
-    transform = transforms.Compose([
-        transforms.Resize((224, 224)),
-        transforms.ToTensor(),
-        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-    ])
+        transform = transforms.Compose([
+            transforms.Resize((224, 224)),
+            transforms.ToTensor(),
+            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+        ])
+    except ImportError:
+        logger.info("未安裝 PyTorch (現場以 ONNX Runtime 為主)")
 
 
 def _preprocess_numpy(image: Image.Image) -> np.ndarray:
