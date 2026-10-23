@@ -9,14 +9,20 @@ cd "$DIR"
 
 echo "🌲 正在啟動飛鼠商店 (樹莓派現場系統)..."
 
-# 1. 檢查 Python 虛擬環境 (防止多個重複 venv 造成衝突)
-if [ -d "$DIR/.venv" ] && [ -d "$DIR/backend/.venv" ]; then
+# 1. 檢查 Python 虛擬環境 (優先檢測已啟用的 venv、當前目錄、或上一層目錄)
+if [ -n "$VIRTUAL_ENV" ] && [ -f "$VIRTUAL_ENV/bin/python" ]; then
+    echo "🐍 使用當前終端已啟用的虛擬環境: $VIRTUAL_ENV"
+    PYTHON_EXEC="$VIRTUAL_ENV/bin/python"
+elif [ -d "$DIR/.venv" ] && [ -d "$DIR/backend/.venv" ]; then
     echo "⚠️  警告：偵測到多個虛擬環境 ($DIR/.venv 與 $DIR/backend/.venv)！"
     echo "👉 系統將統一使用專案根目錄的 $DIR/.venv。"
     echo "💡 建議刪除 backend/.venv (執行 rm -rf backend/.venv) 以免套件版本混淆。"
     PYTHON_EXEC="$DIR/.venv/bin/python"
 elif [ -d "$DIR/.venv" ]; then
     PYTHON_EXEC="$DIR/.venv/bin/python"
+elif [ -d "$DIR/../.venv" ]; then
+    echo "🐍 在父層目錄找到虛擬環境: $DIR/../.venv"
+    PYTHON_EXEC="$DIR/../.venv/bin/python"
 elif [ -d "$DIR/backend/.venv" ]; then
     echo "ℹ️  使用 backend/.venv 虛擬環境 (建議後續統一遷移至根目錄 .venv)"
     PYTHON_EXEC="$DIR/backend/.venv/bin/python"
