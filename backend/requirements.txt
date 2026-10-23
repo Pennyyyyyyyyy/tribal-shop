@@ -10,8 +10,11 @@ python-multipart>=0.0.9
 pydantic>=2.7.0
 
 # 影像辨識與 AI 模型 (EfficientNet 特徵萃取與影像增強)
-torch>=2.0.0
-torchvision>=0.15.0
+# 樹莓派 (ARMv8.0) 執行 PyTorch 2.4+ 會因 LSE 缺失觸發 SIGILL (無效指令)，Linux 環境鎖定 2.3.1
+torch>=2.0.0,<=2.3.1; sys_platform == 'linux'
+torchvision>=0.15.0,<=0.18.1; sys_platform == 'linux'
+torch>=2.0.0; sys_platform != 'linux'
+torchvision>=0.15.0; sys_platform != 'linux'
 Pillow>=10.0.0
 numpy>=1.24.0
 
