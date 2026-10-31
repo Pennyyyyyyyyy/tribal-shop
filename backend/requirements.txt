@@ -14,6 +14,7 @@ pydantic>=2.7.0
 onnxruntime>=1.16.0
 Pillow>=10.0.0
 numpy>=1.24.0
+opencv-python-headless>=4.8.0
 
 # 資料庫連線 (Supabase PostgreSQL / pgvector 特徵比對) 與 HTTP 請求
 psycopg2-binary>=2.9.9
