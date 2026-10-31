@@ -2,14 +2,12 @@ import React, {
   useRef,
   useState,
   useEffect,
-  useMemo,
 } from "react";
 
 import { useNavigate } from "react-router-dom";
 import { useCheckout } from "../context/CheckoutContext";
 import CameraView from "../components/CameraView";
 import RoiEditor from "../components/RoiEditor";
-import CheckoutCartEditor from "../components/CheckoutCartEditor";
 import { useVoiceInstruction } from "../hooks/useVoiceInstruction";
 
 
@@ -27,8 +25,10 @@ export default function ScanPage() {
   const {
     products,
     cart,
-    setCart,
     addItemToCart,
+    addItemsToCart,
+    increaseQty,
+    decreaseQty,
     totalAmount,
     API_BASE_URL,
   } = useCheckout();
@@ -41,7 +41,7 @@ export default function ScanPage() {
 
 
   const [
-    scannedResults,
+    _scannedResults,
     setScannedResults,
   ] = useState([]);
 
@@ -394,32 +394,31 @@ export default function ScanPage() {
 
 
     if (isE2E) {
-
       const base =
         products
           .slice(0, 3)
           .map((p) => ({
-
             ...p,
-
+            id: String(p.id),
+            product_id: String(p.id),
             quantity: 1,
-
             confidence: 0.5,
-
             isMock: true,
-
           }));
 
-
+      addItemsToCart(base);
       setScannedResults(
         base
       );
-
+      setScanData({
+        cart_items: base,
+        total_objects_detected: base.length,
+        unrecognized_count: 0,
+      });
 
       setScanPhase(
         "RESULT"
       );
-
 
       return;
     }
@@ -514,29 +513,33 @@ export default function ScanPage() {
 
 
 
-        if (data.status === "success") {
+        if (data && data.status === "success") {
+          let itemsToAdd = [];
           if (Array.isArray(data.cart_items) && (data.cart_items.length > 0 || data.total_objects_detected > 0)) {
-            setScanData(data);
-            setScannedResults(data.cart_items);
-            setScanPhase("RESULT");
-            return;
-          }
-          if (Array.isArray(data.predictions) && data.predictions.length > 0) {
-            const results = data.predictions.map((item) => ({
+            itemsToAdd = data.cart_items.map((item) => ({
               ...item,
+              id: String(item.product_id || item.id),
+              product_id: String(item.product_id || item.id),
+              quantity: Number(item.quantity) || 1,
+            }));
+          } else if (Array.isArray(data.predictions) && data.predictions.length > 0) {
+            itemsToAdd = data.predictions.map((item) => ({
+              ...item,
+              id: String(item.id || item.product_id),
               product_id: String(item.id || item.product_id),
               quantity: 1,
               isMock: false,
             }));
-            setScanData({
-              cart_items: results,
-              total_objects_detected: results.length,
-              unrecognized_count: 0,
-            });
-            setScannedResults(results);
-            setScanPhase("RESULT");
-            return;
           }
+
+          if (itemsToAdd.length > 0) {
+            addItemsToCart(itemsToAdd);
+          }
+
+          setScanData(data);
+          setScannedResults(itemsToAdd);
+          setScanPhase("RESULT");
+          return;
         }
 
 
@@ -561,18 +564,20 @@ export default function ScanPage() {
       products
         .slice(0, 3)
         .map((p) => ({
-
           ...p,
-
+          id: String(p.id),
+          product_id: String(p.id),
           quantity: 1,
-
           confidence: 0.5,
-
           isMock: true,
-
         }));
 
-
+    addItemsToCart(fallback);
+    setScanData({
+      cart_items: fallback,
+      total_objects_detected: fallback.length,
+      unrecognized_count: 0,
+    });
     setScannedResults(
       fallback
     );
@@ -672,29 +677,33 @@ export default function ScanPage() {
         );
 
 
-        if (data.status === "success") {
+        if (data && data.status === "success") {
+          let itemsToAdd = [];
           if (Array.isArray(data.cart_items) && (data.cart_items.length > 0 || data.total_objects_detected > 0)) {
-            setScanData(data);
-            setScannedResults(data.cart_items);
-            setScanPhase("RESULT");
-            return;
-          }
-          if (Array.isArray(data.predictions) && data.predictions.length > 0) {
-            const results = data.predictions.map((item) => ({
+            itemsToAdd = data.cart_items.map((item) => ({
               ...item,
+              id: String(item.product_id || item.id),
+              product_id: String(item.product_id || item.id),
+              quantity: Number(item.quantity) || 1,
+            }));
+          } else if (Array.isArray(data.predictions) && data.predictions.length > 0) {
+            itemsToAdd = data.predictions.map((item) => ({
+              ...item,
+              id: String(item.id || item.product_id),
               product_id: String(item.id || item.product_id),
               quantity: 1,
               isMock: false,
             }));
-            setScanData({
-              cart_items: results,
-              total_objects_detected: results.length,
-              unrecognized_count: 0,
-            });
-            setScannedResults(results);
-            setScanPhase("RESULT");
-            return;
           }
+
+          if (itemsToAdd.length > 0) {
+            addItemsToCart(itemsToAdd);
+          }
+
+          setScanData(data);
+          setScannedResults(itemsToAdd);
+          setScanPhase("RESULT");
+          return;
         }
 
 
@@ -801,7 +810,7 @@ export default function ScanPage() {
 
 
 
-  const handleSelectProduct = (
+  const _handleSelectProduct = (
     item
   ) => {
 
@@ -1713,76 +1722,150 @@ export default function ScanPage() {
             : (
 
               /* =================================================
-                  辨識結果 (多商品數量聚合與觸控加減微調)
+                  辨識結果 (多商品數量聚合與觸控加減微調，與 ProductSelectPage 風格一致)
               ================================================== */
 
-              <div
-                className="
-                  flex-1
-                  min-h-0
-                  flex
-                  flex-col
-                  gap-4
-                  overflow-y-auto
-                "
-              >
-                <CheckoutCartEditor
-                  initialItems={
-                    scanData?.cart_items ||
-                    scannedResults.map((item) => ({
-                      product_id: String(item.product_id || item.id),
-                      name: item.name,
-                      price: Number(item.price || 0),
-                      image_url: item.image_url,
-                      quantity: item.quantity || 1,
-                    }))
-                  }
-                  totalDetectedCount={
-                    scanData?.total_objects_detected ?? scannedResults.length
-                  }
-                  unrecognizedCount={
-                    scanData?.unrecognized_count ?? 0
-                  }
-                  onRescan={() => {
-                    setScanPhase("IDLE");
-                    setScannedResults([]);
-                    setScanData(null);
-                    if (uploadedImagePreview) {
-                      imageInputRef.current?.click();
-                    }
-                  }}
-                  onProceedToPay={(finalItems, total) => {
-                    const formatted = finalItems.map((item) => ({
-                      id: item.product_id,
-                      name: item.name,
-                      price: Number(item.price),
-                      quantity: Number(item.quantity),
-                      image: item.image_url || "🛍️",
-                      image_url: item.image_url,
-                    }));
-                    setCart(formatted);
-                    navigate("/payment");
-                  }}
-                />
+              <div className="flex-1 min-h-0 flex flex-col gap-3">
+                {/* 頂部辨識資訊與操作列 */}
+                <div className="flex items-center justify-between pb-3 border-b border-slate-200 shrink-0">
+                  <div className="flex items-center gap-3">
+                    <span className="text-lg font-bold text-slate-800">
+                      辨識結果
+                    </span>
+                    {scanData?.total_objects_detected !== undefined && (
+                      <span className="px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold">
+                        偵測到 {scanData.total_objects_detected} 件物品
+                      </span>
+                    )}
+                    {scanData?.unrecognized_count > 0 && (
+                      <span className="px-3 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-xs font-bold">
+                        ⚠️ {scanData.unrecognized_count} 件未辨識
+                      </span>
+                    )}
+                  </div>
 
-                <div className="flex justify-center gap-4 py-2">
-                  <button
-                    type="button"
-                    onClick={() => navigate("/products")}
-                    className="text-sm text-slate-500 hover:text-slate-800 underline font-medium"
-                  >
-                    📦 手動選擇其他商品
-                  </button>
-                  <span className="text-slate-300">|</span>
-                  <button
-                    type="button"
-                    onClick={returnToCamera}
-                    className="text-sm text-indigo-600 hover:text-indigo-800 font-medium"
-                  >
-                    📷 放棄並返回拍照
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setScanPhase("IDLE");
+                        setUploadedImagePreview(null);
+                      }}
+                      className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold transition flex items-center gap-1.5 cursor-pointer"
+                    >
+                      📷 重新拍照
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => navigate("/products")}
+                      className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold transition flex items-center gap-1.5 cursor-pointer"
+                    >
+                      📦 手動選擇商品
+                    </button>
+                  </div>
                 </div>
 
+                {/* 商品卡片區 - 與 ProductSelectPage.jsx 完全一致的風格 */}
+                <div
+                  className="flex-1 overflow-y-scroll pr-3 min-h-0
+                    [&::-webkit-scrollbar]:w-2
+                    [&::-webkit-scrollbar-track]:bg-slate-100
+                    [&::-webkit-scrollbar-track]:rounded-full
+                    [&::-webkit-scrollbar-thumb]:bg-slate-400
+                    [&::-webkit-scrollbar-thumb]:rounded-full
+                    hover:[&::-webkit-scrollbar-thumb]:bg-slate-500"
+                >
+                  {cart.length === 0 ? (
+                    <div className="h-64 flex flex-col items-center justify-center text-slate-400 gap-3">
+                      <span className="text-5xl">🛒</span>
+                      <p className="text-base font-medium">購物車目前沒有商品</p>
+                      <div className="flex gap-3 mt-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setScanPhase("IDLE");
+                            setUploadedImagePreview(null);
+                          }}
+                          className="px-5 py-2.5 rounded-xl bg-emerald-600 text-white font-bold text-sm hover:bg-emerald-500 shadow-md transition"
+                        >
+                          📷 重新拍照
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => navigate("/products")}
+                          className="px-5 py-2.5 rounded-xl bg-slate-100 text-slate-700 font-bold text-sm hover:bg-slate-200 transition"
+                        >
+                          📦 手動選擇商品
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap gap-3">
+                      {cart.map((item) => (
+                        <div
+                          key={item.id ?? item.product_id ?? item.name}
+                          data-testid={`cart-card-${item.name}`}
+                          className="w-44 flex-none bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col"
+                        >
+                          <div className="w-full h-44 bg-slate-50 flex items-center justify-center p-3 shrink-0">
+                            {item.image_url ? (
+                              <img
+                                src={
+                                  item.image_url.startsWith("http")
+                                    ? item.image_url
+                                    : item.image_url.replace(
+                                        "/uploads/product_photos/",
+                                        "/photo/"
+                                      )
+                                }
+                                alt={item.name}
+                                className="max-w-full max-h-full object-contain mx-auto"
+                              />
+                            ) : (
+                              <span className="text-4xl">{item.image || "🛍️"}</span>
+                            )}
+                          </div>
+
+                          <div className="p-3 flex flex-col gap-1.5">
+                            <div
+                              className="text-sm font-bold text-slate-800 truncate"
+                              title={item.name}
+                            >
+                              {item.name}
+                            </div>
+                            <div className="text-base font-bold text-emerald-700">
+                              ${item.price}
+                            </div>
+
+                            <div className="flex items-center gap-1.5 mt-1">
+                              <button
+                                type="button"
+                                data-testid={`btn-dec-${item.name}`}
+                                onClick={() => decreaseQty(item.id ?? item.product_id)}
+                                className="w-8 h-8 rounded-lg bg-slate-100 text-slate-700 text-base font-bold hover:bg-slate-200 active:scale-95 transition flex items-center justify-center cursor-pointer select-none"
+                                aria-label="減少數量"
+                              >
+                                -
+                              </button>
+                              <span className="w-6 text-center text-base font-bold text-slate-800 select-none">
+                                {item.quantity}
+                              </span>
+                              <button
+                                type="button"
+                                data-testid={`btn-inc-${item.name}`}
+                                onClick={() => increaseQty(item.id ?? item.product_id)}
+                                className="w-8 h-8 rounded-lg bg-slate-100 text-slate-700 text-base font-bold hover:bg-slate-200 active:scale-95 transition flex items-center justify-center cursor-pointer select-none"
+                                aria-label="增加數量"
+                              >
+                                +
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
 
             )
@@ -1970,41 +2053,48 @@ export default function ScanPage() {
           </div>
 
 
-          {/* 查看清單 */}
-
-          <button
-
-            onClick={() =>
-              navigate(
-                "/cart"
-              )
-            }
-
-            disabled={
-              cart.length === 0
-            }
-
-            className={`
-              shrink-0
-              px-6
-              py-3
-              rounded-xl
-              font-bold
-              transition-all
-
-              ${
-                cart.length > 0
-
-                  ? "bg-sky-500 text-white shadow-sm hover:bg-sky-600"
-
-                  : "bg-slate-100 text-slate-400 cursor-not-allowed"
-              }
-            `}
-          >
-
-            查看清單 →
-
-          </button>
+          {/* 右側按鈕群 */}
+          <div className="flex items-center gap-3 shrink-0">
+            <button
+              type="button"
+              onClick={() => navigate("/cart")}
+              disabled={cart.length === 0}
+              className={`
+                px-5
+                py-3
+                rounded-xl
+                font-bold
+                transition-all
+                ${
+                  cart.length > 0
+                    ? "bg-sky-600 text-white shadow-sm hover:bg-sky-500 active:scale-95 cursor-pointer"
+                    : "bg-slate-100 text-slate-400 cursor-not-allowed"
+                }
+              `}
+            >
+              查看清單
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate("/payment")}
+              disabled={cart.length === 0}
+              className={`
+                px-6
+                py-3
+                rounded-2xl
+                font-bold
+                text-base
+                transition-all
+                ${
+                  cart.length > 0
+                    ? "bg-emerald-600 text-white shadow-lg hover:bg-emerald-500 active:scale-95 cursor-pointer"
+                    : "bg-slate-100 text-slate-400 cursor-not-allowed"
+                }
+              `}
+            >
+              前往結帳 ➔
+            </button>
+          </div>
 
         </div>
 

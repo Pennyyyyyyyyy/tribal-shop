@@ -34,104 +34,144 @@ export function CheckoutCartEditor({
   }, [items]);
 
   return (
-    <div className="p-6 max-w-3xl mx-auto bg-white rounded-2xl shadow-lg border border-slate-200">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b pb-4 mb-4 gap-3">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-800">
-            🛒 辨識結果確認（共偵測到 {totalDetectedCount} 件物品）
-          </h2>
+    <div className="w-full flex-1 min-h-0 flex flex-col gap-3">
+      {/* 頂部操作/狀態列 */}
+      <div className="flex items-center justify-between pb-3 border-b border-slate-200 shrink-0">
+        <div className="flex items-center gap-3">
+          <span className="text-lg font-bold text-slate-800">
+            辨識結果確認
+          </span>
+          {totalDetectedCount !== undefined && (
+            <span className="px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold">
+              偵測到 {totalDetectedCount} 件物品
+            </span>
+          )}
           {unrecognizedCount > 0 && (
-            <p className="text-sm text-amber-600 mt-1">
-              ⚠️ 有 {unrecognizedCount} 件物品未認出，請調整擺放角度後重拍，或直接於下方加減數量。
-            </p>
+            <span className="px-3 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-xs font-bold">
+              ⚠️ {unrecognizedCount} 件未辨識
+            </span>
           )}
         </div>
-        <button
-          onClick={onRescan}
-          className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition cursor-pointer select-none"
-        >
-          🔄 重新拍照
-        </button>
+        {onRescan && (
+          <button
+            onClick={onRescan}
+            className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-bold transition cursor-pointer select-none"
+          >
+            📷 重新拍照
+          </button>
+        )}
       </div>
 
-      {/* 商品清單與 [+] [-] 數量調整器 */}
-      {items.length === 0 ? (
-        <div className="text-center py-12 text-gray-400 text-lg">
-          目前清單沒有商品，請放置商品後點擊「重新拍照」
-        </div>
-      ) : (
-        <div className="space-y-4 max-h-80 overflow-y-auto pr-2">
-          {items.map((item) => (
-            <div
-              key={item.product_id}
-              className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-200"
-            >
-              <div className="flex items-center gap-4 min-w-0">
-                {item.image_url ? (
-                  <img
-                    src={item.image_url}
-                    alt={item.name}
-                    className="w-16 h-16 object-cover rounded-lg border bg-white shrink-0"
-                  />
-                ) : (
-                  <div className="w-16 h-16 rounded-lg border bg-white flex items-center justify-center text-3xl shrink-0">
-                    🛍️
+      {/* 商品卡片區 - 與 ProductSelectPage.jsx 完全一致的風格 */}
+      <div
+        className="flex-1 overflow-y-scroll pr-3 min-h-0
+          [&::-webkit-scrollbar]:w-2
+          [&::-webkit-scrollbar-track]:bg-slate-100
+          [&::-webkit-scrollbar-track]:rounded-full
+          [&::-webkit-scrollbar-thumb]:bg-slate-400
+          [&::-webkit-scrollbar-thumb]:rounded-full
+          hover:[&::-webkit-scrollbar-thumb]:bg-slate-500"
+      >
+        {items.length === 0 ? (
+          <div className="h-64 flex flex-col items-center justify-center text-slate-400 gap-3">
+            <span className="text-5xl">🛒</span>
+            <p className="text-base font-medium">目前清單沒有商品</p>
+            {onRescan && (
+              <button
+                onClick={onRescan}
+                className="mt-2 px-5 py-2.5 rounded-xl bg-emerald-600 text-white font-bold text-sm hover:bg-emerald-500 shadow-md transition"
+              >
+                📷 重新拍照
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="flex flex-wrap gap-3">
+            {items.map((item) => (
+              <div
+                key={item.product_id}
+                data-testid={`cart-card-${item.name}`}
+                className="w-44 flex-none bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col"
+              >
+                <div className="w-full h-44 bg-slate-50 flex items-center justify-center p-3 shrink-0">
+                  {item.image_url ? (
+                    <img
+                      src={
+                        item.image_url.startsWith("http")
+                          ? item.image_url
+                          : item.image_url.replace(
+                              "/uploads/product_photos/",
+                              "/photo/"
+                            )
+                      }
+                      alt={item.name}
+                      className="max-w-full max-h-full object-contain mx-auto"
+                    />
+                  ) : (
+                    <span className="text-4xl">{item.image || "🛍️"}</span>
+                  )}
+                </div>
+
+                <div className="p-3 flex flex-col gap-1.5">
+                  <div
+                    className="text-sm font-bold text-slate-800 truncate"
+                    title={item.name}
+                  >
+                    {item.name}
                   </div>
-                )}
-                <div className="truncate">
-                  <h3 className="text-xl font-semibold text-gray-900 truncate">{item.name}</h3>
-                  <p className="text-gray-500">單價 NT$ {item.price}</p>
+                  <div className="text-base font-bold text-emerald-700">
+                    ${item.price}
+                  </div>
+
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <button
+                      type="button"
+                      data-testid={`btn-dec-${item.name}`}
+                      onClick={() => updateQuantity(item.product_id, -1)}
+                      className="w-8 h-8 rounded-lg bg-slate-100 text-slate-700 text-base font-bold hover:bg-slate-200 active:scale-95 transition flex items-center justify-center cursor-pointer select-none"
+                      aria-label="減少數量"
+                    >
+                      -
+                    </button>
+                    <span className="w-6 text-center text-base font-bold text-slate-800 select-none">
+                      {item.quantity}
+                    </span>
+                    <button
+                      type="button"
+                      data-testid={`btn-inc-${item.name}`}
+                      onClick={() => updateQuantity(item.product_id, 1)}
+                      className="w-8 h-8 rounded-lg bg-slate-100 text-slate-700 text-base font-bold hover:bg-slate-200 active:scale-95 transition flex items-center justify-center cursor-pointer select-none"
+                      aria-label="增加數量"
+                    >
+                      +
+                    </button>
+                  </div>
                 </div>
               </div>
+            ))}
+          </div>
+        )}
+      </div>
 
-              {/* 觸控友善的大尺寸 [-] 數量 [+] 控制區 */}
-              <div className="flex items-center gap-4 sm:gap-6 shrink-0">
-                <div className="flex items-center gap-2 sm:gap-3">
-                  <button
-                    type="button"
-                    onClick={() => updateQuantity(item.product_id, -1)}
-                    className="w-12 h-12 rounded-xl bg-red-100 active:bg-red-200 text-red-600 text-2xl font-bold flex items-center justify-center select-none shadow-sm hover:scale-105 active:scale-95 transition cursor-pointer"
-                  >
-                    −
-                  </button>
-                  <span className="w-10 text-center text-2xl font-bold text-gray-800">
-                    {item.quantity}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => updateQuantity(item.product_id, 1)}
-                    className="w-12 h-12 rounded-xl bg-green-100 active:bg-green-200 text-green-700 text-2xl font-bold flex items-center justify-center select-none shadow-sm hover:scale-105 active:scale-95 transition cursor-pointer"
-                  >
-                    ＋
-                  </button>
-                </div>
+      {/* 底部總計與確認按鈕 */}
+      {onProceedToPay && (
+        <div className="mt-3 bg-white rounded-2xl border border-slate-200 px-5 py-3 flex items-center justify-between shrink-0">
+          <div className="text-slate-700">
+            <span className="text-sm text-slate-500">購物車</span>
+            <span className="text-xl font-bold ml-2">
+              {totalCount} 項 · ${totalAmount}
+            </span>
+          </div>
 
-                <div className="w-24 sm:w-28 text-right font-bold text-xl text-gray-900">
-                  NT$ {item.price * item.quantity}
-                </div>
-              </div>
-            </div>
-          ))}
+          <button
+            disabled={items.length === 0}
+            onClick={() => onProceedToPay(items, totalAmount)}
+            className="px-6 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-200 disabled:text-slate-400 text-white font-bold text-base shadow-lg active:scale-95 transition cursor-pointer"
+          >
+            前往結帳 ➔
+          </button>
         </div>
       )}
-
-      {/* 底部總計與進入投幣結帳按鈕 */}
-      <div className="mt-6 pt-4 border-t flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div>
-          <span className="text-gray-600 text-lg">共 {totalCount} 件商品，總計：</span>
-          <span className="text-3xl font-extrabold text-emerald-600 ml-2">
-            NT$ {totalAmount}
-          </span>
-        </div>
-
-        <button
-          disabled={items.length === 0}
-          onClick={() => onProceedToPay(items, totalAmount)}
-          className="w-full sm:w-auto px-8 py-4 bg-emerald-600 hover:bg-emerald-500 disabled:bg-gray-300 text-white text-xl font-bold rounded-xl shadow-md active:scale-95 transition cursor-pointer"
-        >
-          確認數量，開始投幣結帳 ➔
-        </button>
-      </div>
     </div>
   );
 }

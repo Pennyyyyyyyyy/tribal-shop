@@ -49,36 +49,78 @@ export function CheckoutProvider({ children }) {
     })();
   }, []);
 
-  const addItemToCart = (item) => {
-    if (!item) return;
+  const addItemsToCart = (items) => {
+    if (!items || !items.length) return;
     setCart((prev) => {
-      const index = prev.findIndex((p) => p.id === item.id);
-      if (index === -1) return [...prev, item];
-      const newCart = [...prev];
-      newCart[index] = {
-        ...newCart[index],
-        quantity: newCart[index].quantity + item.quantity,
-      };
-      return newCart;
+      const nextCart = [...prev];
+      for (const rawItem of items) {
+        if (!rawItem) continue;
+        const targetId = rawItem.id ?? rawItem.product_id;
+        const qty = Number(rawItem.quantity) || 1;
+        const index = nextCart.findIndex((p) => {
+          const pId = p.id ?? p.product_id;
+          if (pId !== undefined && pId !== null && targetId !== undefined && targetId !== null) {
+            return String(pId) === String(targetId);
+          }
+          return p.name === rawItem.name;
+        });
+
+        if (index === -1) {
+          nextCart.push({
+            ...rawItem,
+            id: targetId !== undefined ? targetId : rawItem.name,
+            product_id: targetId !== undefined ? targetId : rawItem.name,
+            name: rawItem.name,
+            price: Number(rawItem.price) || 0,
+            quantity: qty,
+            image_url: rawItem.image_url || rawItem.image,
+          });
+        } else {
+          nextCart[index] = {
+            ...nextCart[index],
+            image_url: rawItem.image_url || nextCart[index].image_url,
+            quantity: nextCart[index].quantity + qty,
+          };
+        }
+      }
+      return nextCart;
     });
+  };
+
+  const addItemToCart = (item) => {
+    if (item) addItemsToCart([item]);
   };
 
   const increaseQty = (id) => {
     setCart((prev) =>
-      prev.map((it) =>
-        it.id === id ? { ...it, quantity: it.quantity + 1 } : it
-      )
+      prev.map((it) => {
+        const itId = it.id ?? it.product_id;
+        return String(itId) === String(id)
+          ? { ...it, quantity: it.quantity + 1 }
+          : it;
+      })
     );
   };
 
   const decreaseQty = (id) => {
     setCart((prev) => {
-      const target = prev.find((it) => it.id === id);
+      const target = prev.find((it) => {
+        const itId = it.id ?? it.product_id;
+        return String(itId) === String(id);
+      });
       if (!target) return prev;
-      if (target.quantity <= 1) return prev.filter((it) => it.id !== id);
-      return prev.map((it) =>
-        it.id === id ? { ...it, quantity: it.quantity - 1 } : it
-      );
+      if (target.quantity <= 1) {
+        return prev.filter((it) => {
+          const itId = it.id ?? it.product_id;
+          return String(itId) !== String(id);
+        });
+      }
+      return prev.map((it) => {
+        const itId = it.id ?? it.product_id;
+        return String(itId) === String(id)
+          ? { ...it, quantity: it.quantity - 1 }
+          : it;
+      });
     });
   };
 
@@ -101,6 +143,7 @@ export function CheckoutProvider({ children }) {
         cart,
         setCart,
         addItemToCart,
+        addItemsToCart,
         increaseQty,
         decreaseQty,
         products,
