@@ -13,6 +13,7 @@ import psycopg2
 from pathlib import Path
 
 from PIL import Image
+import numpy as np
 
 from dotenv import load_dotenv
 
@@ -866,6 +867,49 @@ def search_pgvector(embedding):
 
         conn.close()
 
+
+def query_pgvector_nearest(conn, vec_list: list[float]) -> dict | None:
+    """在 pgvector 中與各商品的多角度向量進行比對，取最相似的一筆。
+    對齊既有資料庫結構：
+    - product_embeddings (label_name, image_name, embedding)
+    - products (id, name, price, stock, image_url, label_name)
+    """
+    vec_str = "[" + ",".join(f"{v:.6f}" for v in vec_list) + "]"
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute(
+            """
+            SELECT 
+                p.id,
+                p.name,
+                p.price,
+                p.image_url,
+                p.stock,
+                p.label_name,
+                1 - (pe.embedding <=> %s::vector) AS similarity
+            FROM product_embeddings pe
+            JOIN products p ON p.label_name = pe.label_name
+            ORDER BY pe.embedding <=> %s::vector ASC
+            LIMIT 1;
+            """,
+            (vec_str, vec_str)
+        )
+        row = cur.fetchone()
+
+    if not row:
+        return None
+
+    sim = float(row["similarity"])
+    if sim < SIMILARITY_THRESHOLD:
+        return None
+
+    return {
+        "product_id": str(row["id"]),
+        "name": row["name"],
+        "price": int(row["price"]) if row["price"] is not None else 0,
+        "image_url": row["image_url"],
+        "similarity": round(sim, 4),
+        "label_name": row["label_name"]
+    }
 
 
 
@@ -1744,6 +1788,104 @@ async def detect_product(
 
             predictions
 
+    }
+
+
+@router.post("/scan-table")
+@router.post("/api/vision/scan-table")
+async def scan_checkout_table(
+    file: UploadFile = File(None),
+    image: UploadFile = File(None)
+):
+    """
+    切出桌上所有商品 -> ONNX 抽特徵 -> pgvector 比對 -> 聚合計算各商品數量回傳前端
+    相容 file 或 image 表單欄位名
+    """
+    upload = file or image
+    if upload is None:
+        raise HTTPException(status_code=400, detail="未提供影像檔案 (需為 file 或 image)")
+
+    raw_bytes = await upload.read()
+    try:
+        pil_full = Image.open(io.BytesIO(raw_bytes)).convert("RGB")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"無法解析圖片檔案：{e}")
+
+    img_rgb = np.asarray(pil_full)
+
+    # 1. Stage 1: 切出畫面上所有獨立商品
+    masks, boxes = SEGMENTER.segment(img_rgb)
+    if not masks:
+        return {
+            "status": "success",
+            "total_objects_detected": 0,
+            "unrecognized_count": 0,
+            "cart_items": [],
+            "detections": []
+        }
+
+    # 2. Stage 2: 去背並補成 224x224 正方形
+    cropped_pils = [
+        crop_mask_and_pad_pil(img_rgb, mask, box, target_size=224, bg_color=255)
+        for mask, box in zip(masks, boxes)
+    ]
+
+    # 3. Stage 3: 批次提取特徵向量
+    if EMBEDDER is not None:
+        embeddings = EMBEDDER.extract_batch(cropped_pils)
+    else:
+        embeddings = np.array(get_embeddings(cropped_pils), dtype=np.float32)
+
+    # 4. Stage 4: 比對 pgvector 並自動歸戶統計數量
+    cart_map: dict[str, dict] = {}
+    detections = []
+    unrecognized_count = 0
+
+    conn = get_db()
+    try:
+        for idx, (box, emb) in enumerate(zip(boxes, embeddings)):
+            match = query_pgvector_nearest(conn, emb.tolist())
+            if match is None:
+                unrecognized_count += 1
+                detections.append({
+                    "index": idx + 1,
+                    "bbox": box,
+                    "matched": False,
+                    "name": "未辨識商品"
+                })
+                continue
+
+            detections.append({
+                "index": idx + 1,
+                "bbox": box,
+                "matched": True,
+                **match
+            })
+
+            pid = match["product_id"]
+            if pid not in cart_map:
+                cart_map[pid] = {
+                    "product_id": pid,
+                    "name": match["name"],
+                    "price": match["price"],
+                    "image_url": match["image_url"],
+                    "quantity": 1,
+                    "max_similarity": match["similarity"]
+                }
+            else:
+                cart_map[pid]["quantity"] += 1
+                cart_map[pid]["max_similarity"] = max(
+                    cart_map[pid]["max_similarity"], match["similarity"]
+                )
+    finally:
+        conn.close()
+
+    return {
+        "status": "success",
+        "total_objects_detected": len(masks),
+        "unrecognized_count": unrecognized_count,
+        "cart_items": list(cart_map.values()),
+        "detections": detections
     }
 
 
