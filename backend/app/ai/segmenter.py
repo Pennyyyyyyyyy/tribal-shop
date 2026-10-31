@@ -9,6 +9,7 @@ class SegmentConfig:
     max_area_ratio: float = 0.65        # 最大商品面積佔比 (過濾整張白桌面)
     max_aspect_ratio: float = 3.8       # 最大長寬比 (過濾畫面邊緣入鏡的木桌邊條)
     containment_threshold: float = 0.85 # 內部包含重疊門檻 (過濾商品內部的文字/大色塊)
+    max_process_dim: int = 800          # 分割前處理最大邊長 (等比降採樣大幅加速 CPU 運算)
 
 
 class WhiteBgSegmenter:
@@ -26,10 +27,22 @@ class WhiteBgSegmenter:
         - final_masks: list of bool ndarray (H, W)
         - final_boxes: list of [x1, y1, x2, y2]
         """
-        h, w = img_rgb.shape[:2]
+        orig_h, orig_w = img_rgb.shape[:2]
+        needs_scale = max(orig_h, orig_w) > self.cfg.max_process_dim
+        if needs_scale:
+            scale = self.cfg.max_process_dim / float(max(orig_h, orig_w))
+            proc_w = max(1, int(round(orig_w * scale)))
+            proc_h = max(1, int(round(orig_h * scale)))
+            proc_rgb = cv2.resize(img_rgb, (proc_w, proc_h), interpolation=cv2.INTER_AREA)
+        else:
+            scale = 1.0
+            proc_rgb = img_rgb
+            proc_w, proc_h = orig_w, orig_h
+
+        h, w = proc_h, proc_w
         total_area = float(h * w)
 
-        blurred = cv2.bilateralFilter(img_rgb, d=9, sigmaColor=75, sigmaSpace=75)
+        blurred = cv2.bilateralFilter(proc_rgb, d=9, sigmaColor=75, sigmaSpace=75)
         hsv = cv2.cvtColor(blurred, cv2.COLOR_RGB2HSV)
         gray = cv2.cvtColor(blurred, cv2.COLOR_RGB2GRAY)
 
@@ -66,7 +79,7 @@ class WhiteBgSegmenter:
         _, markers = cv2.connectedComponents(sure_fg)
         markers = markers + 1
         markers[unknown == 255] = 0
-        markers = cv2.watershed(cv2.cvtColor(img_rgb, cv2.COLOR_RGB2BGR), markers)
+        markers = cv2.watershed(cv2.cvtColor(proc_rgb, cv2.COLOR_RGB2BGR), markers)
 
         # 5. 面積、長寬比與內部包含過濾
         candidates = []
@@ -100,5 +113,26 @@ class WhiteBgSegmenter:
             if not is_inside:
                 final_masks.append(cand_mask)
                 final_boxes.append(cand_box)
+
+        if needs_scale and scale > 0:
+            rescaled_masks = []
+            rescaled_boxes = []
+            for mask, box in zip(final_masks, final_boxes):
+                x1, y1, x2, y2 = box
+                rx1 = max(0, min(orig_w, int(round(x1 / scale))))
+                ry1 = max(0, min(orig_h, int(round(y1 / scale))))
+                rx2 = max(rx1 + 1, min(orig_w, int(round(x2 / scale))))
+                ry2 = max(ry1 + 1, min(orig_h, int(round(y2 / scale))))
+                rescaled_boxes.append([rx1, ry1, rx2, ry2])
+
+                # 將遮罩映射回全尺寸
+                m_full = cv2.resize(
+                    mask.astype(np.uint8),
+                    (orig_w, orig_h),
+                    interpolation=cv2.INTER_NEAREST
+                ).astype(bool)
+                rescaled_masks.append(m_full)
+
+            return rescaled_masks, rescaled_boxes
 
         return final_masks, final_boxes

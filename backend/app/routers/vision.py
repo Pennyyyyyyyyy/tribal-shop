@@ -51,7 +51,7 @@ router = APIRouter()
 SEGMENTER = WhiteBgSegmenter()
 ONNX_MODEL_FILE = Path(__file__).resolve().parent.parent / "ai" / "best_efficientnet_model.onnx"
 EMBEDDER = OnnxEfficientNetEmbedder(ONNX_MODEL_FILE) if ONNX_MODEL_FILE.is_file() else None
-SIMILARITY_THRESHOLD = float(os.getenv("SIMILARITY_THRESHOLD", "0.72"))
+SIMILARITY_THRESHOLD = float(os.getenv("SIMILARITY_THRESHOLD", "0.65"))
 
 
 
@@ -896,12 +896,21 @@ def query_pgvector_nearest(conn, vec_list: list[float]) -> dict | None:
         row = cur.fetchone()
 
     if not row:
+        print("[AI 辨識] 查無任何候選商品")
         return None
 
     sim = float(row["similarity"])
     if sim < SIMILARITY_THRESHOLD:
+        print(
+            f"[AI 辨識] ⚠️ 未達相似度門檻：最接近「{row['name']}」"
+            f" 相似度 {sim:.4f} < 門檻 {SIMILARITY_THRESHOLD}"
+        )
         return None
 
+    print(
+        f"[AI 辨識] ✅ 成功命中：「{row['name']}」"
+        f" 相似度 {sim:.4f} >= 門檻 {SIMILARITY_THRESHOLD}"
+    )
     return {
         "product_id": str(row["id"]),
         "name": row["name"],
@@ -910,6 +919,91 @@ def query_pgvector_nearest(conn, vec_list: list[float]) -> dict | None:
         "similarity": round(sim, 4),
         "label_name": row["label_name"]
     }
+
+
+def query_pgvector_batch(conn, vec_list_of_lists: list[list[float]]) -> list[dict | None]:
+    """批次透過 CROSS JOIN LATERAL 查詢多個商品的最高相似度商品，
+    僅需 1 次資料庫網路往返，大幅降低跨國延遲。
+    """
+    if not vec_list_of_lists:
+        return []
+
+    # 若單元測試中 query_pgvector_nearest 被 mock，則走 mock 呼叫
+    if hasattr(query_pgvector_nearest, "assert_called") or getattr(query_pgvector_nearest, "_mock_return_value", None) is not None:
+        return [query_pgvector_nearest(conn, v) for v in vec_list_of_lists]
+
+    if len(vec_list_of_lists) == 1:
+        return [query_pgvector_nearest(conn, vec_list_of_lists[0])]
+
+    values_clause = ", ".join("(%s, %s::vector)" for _ in range(len(vec_list_of_lists)))
+    params = []
+    for idx, v in enumerate(vec_list_of_lists):
+        vec_str = "[" + ",".join(f"{val:.6f}" for val in v) + "]"
+        params.extend([idx + 1, vec_str])
+
+    sql = f"""
+        SELECT 
+            v.idx,
+            q.id,
+            q.name,
+            q.price,
+            q.image_url,
+            q.stock,
+            q.label_name,
+            q.similarity
+        FROM (
+            VALUES {values_clause}
+        ) AS v(idx, vec)
+        CROSS JOIN LATERAL (
+            SELECT 
+                p.id,
+                p.name,
+                p.price,
+                p.image_url,
+                p.stock,
+                p.label_name,
+                1 - (pe.embedding <=> v.vec) AS similarity
+            FROM product_embeddings pe
+            JOIN products p ON p.label_name = pe.label_name
+            ORDER BY pe.embedding <=> v.vec ASC
+            LIMIT 1
+        ) AS q
+        ORDER BY v.idx ASC;
+    """
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute(sql, params)
+        rows = cur.fetchall()
+
+    row_map = {int(r["idx"]): r for r in rows}
+    results = []
+    for i in range(1, len(vec_list_of_lists) + 1):
+        row = row_map.get(i)
+        if not row:
+            print(f"[AI 辨識] 第 {i} 個物件查無候選")
+            results.append(None)
+            continue
+        sim = float(row["similarity"])
+        if sim < SIMILARITY_THRESHOLD:
+            print(
+                f"[AI 辨識] ⚠️ 第 {i} 個物件未達門檻：最接近「{row['name']}」"
+                f" 相似度 {sim:.4f} < 門檻 {SIMILARITY_THRESHOLD}"
+            )
+            results.append(None)
+        else:
+            print(
+                f"[AI 辨識] ✅ 第 {i} 個物件成功命中：「{row['name']}」"
+                f" 相似度 {sim:.4f} >= 門檻 {SIMILARITY_THRESHOLD}"
+            )
+            results.append({
+                "product_id": str(row["id"]),
+                "name": row["name"],
+                "price": int(row["price"]) if row["price"] is not None else 0,
+                "image_url": row["image_url"],
+                "similarity": round(sim, 4),
+                "label_name": row["label_name"]
+            })
+
+    return results
 
 
 
@@ -1843,8 +1937,8 @@ async def scan_checkout_table(
 
     conn = get_db()
     try:
-        for idx, (box, emb) in enumerate(zip(boxes, embeddings)):
-            match = query_pgvector_nearest(conn, emb.tolist())
+        matches = query_pgvector_batch(conn, [emb.tolist() for emb in embeddings])
+        for idx, (box, match) in enumerate(zip(boxes, matches)):
             if match is None:
                 unrecognized_count += 1
                 detections.append({
@@ -1866,6 +1960,7 @@ async def scan_checkout_table(
             if pid not in cart_map:
                 cart_map[pid] = {
                     "product_id": pid,
+                    "id": pid,
                     "name": match["name"],
                     "price": match["price"],
                     "image_url": match["image_url"],

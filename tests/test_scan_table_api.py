@@ -50,5 +50,43 @@ class TestScanTableApi(unittest.TestCase):
         self.assertEqual(data["cart_items"][0]["product_id"], "42")
         self.assertEqual(data["cart_items"][0]["price"], 50)
 
+    def test_query_pgvector_batch_filtering(self):
+        from backend.app.routers.vision import query_pgvector_batch
+        # 建立模擬 conn
+        mock_conn = MagicMock()
+        mock_cur = MagicMock()
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cur
+
+        # 模擬返回 2 個商品，1 個高於門檻 0.65，1 個低於門檻 0.65
+        mock_cur.fetchall.return_value = [
+            {
+                "idx": 1,
+                "id": 10,
+                "name": "高山茶",
+                "price": 50,
+                "image_url": "tea.jpg",
+                "stock": 5,
+                "label_name": "tea",
+                "similarity": 0.85
+            },
+            {
+                "idx": 2,
+                "id": 20,
+                "name": "未知泡麵",
+                "price": 30,
+                "image_url": "noodle.jpg",
+                "stock": 5,
+                "label_name": "noodle",
+                "similarity": 0.50
+            }
+        ]
+
+        results = query_pgvector_batch(mock_conn, [[0.1] * 1280, [0.2] * 1280])
+        self.assertEqual(len(results), 2)
+        self.assertIsNotNone(results[0])
+        self.assertEqual(results[0]["name"], "高山茶")
+        # 相似度 0.50 低於門檻 0.65 應判定為 None (未辨識)
+        self.assertIsNone(results[1])
+
 if __name__ == "__main__":
     unittest.main()
