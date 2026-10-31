@@ -83,11 +83,8 @@ pip install --upgrade pip
 pip install -r backend/requirements.txt
 ```
 
-> 💡 **樹莓派 5 特別提醒**：
-> 若使用的是 Raspberry Pi 5，因底層改為 RP1 晶片，傳統 `RPi.GPIO` 可能無法直接定址，建議額外安裝 drop-in 相容套件：
-> ```bash
-> pip install rpi-lgpio
-> ```
+> 💡 **硬體 GPIO 支援說明**：
+> `backend/requirements.txt` 內已預先納入 `rpi-lgpio` 相容層（支援 Raspberry Pi 4 與 5），執行 `pip install -r backend/requirements.txt` 時會在 Linux 環境自動安裝，無須額外手動安裝。
 
 ---
 
