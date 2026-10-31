@@ -40,13 +40,17 @@ from pydantic import BaseModel
 
 from app.ai.predict import get_embedding, get_embeddings
 from app.ai.augmentation import augment_to_target
+from app.ai.segmenter import WhiteBgSegmenter
+from app.ai.preprocessor import crop_mask_and_pad_pil, preprocess_single_enrollment_image
+from app.ai.onnx_embedder import OnnxEfficientNetEmbedder
 import requests
 
-
-
-
-
 router = APIRouter()
+
+SEGMENTER = WhiteBgSegmenter()
+ONNX_MODEL_FILE = Path(__file__).resolve().parent.parent / "ai" / "best_efficientnet_model.onnx"
+EMBEDDER = OnnxEfficientNetEmbedder(ONNX_MODEL_FILE) if ONNX_MODEL_FILE.is_file() else None
+SIMILARITY_THRESHOLD = float(os.getenv("SIMILARITY_THRESHOLD", "0.72"))
 
 
 
@@ -1258,15 +1262,35 @@ def generate_embeddings(product_id: int):
 
             # ================================================
 
-            # 5. 6 張 augmentation → 120 張
+            # 5. 建庫去背與 1:1 正方形補邊 → 6 張 augmentation → 120 張
+
+            # (使建庫特徵空間與現場多商品裁切 100% 一致)
 
             # ================================================
 
 
 
+            clean_images = [
+
+                preprocess_single_enrollment_image(
+
+                    img,
+
+                    SEGMENTER,
+
+                    target_size=224
+
+                )
+
+                for img in original_images
+
+            ]
+
+
+
             augmented_images = augment_to_target(
 
-                original_images,
+                clean_images,
 
                 target=120
 
