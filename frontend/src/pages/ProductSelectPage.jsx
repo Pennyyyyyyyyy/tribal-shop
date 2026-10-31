@@ -39,6 +39,7 @@ export default function ProductSelectPage() {
       price: item.price,
       image_url: item.image_url,
       quantity: getQty(item.name),
+      isManual: true,
     });
     setQuantities((prev) => ({ ...prev, [item.name]: 1 }));
   };

@@ -49,6 +49,47 @@ export function CheckoutProvider({ children }) {
     })();
   }, []);
 
+  const setScannedItems = (scannedItems = []) => {
+    setCart((prev) => {
+      // 保留手動加入的商品 (isManual: true)
+      const manualItems = prev.filter((item) => item.isManual);
+      const nextCart = [...manualItems];
+
+      for (const rawItem of scannedItems) {
+        if (!rawItem) continue;
+        const targetId = rawItem.id ?? rawItem.product_id;
+        const qty = Number(rawItem.quantity) || 1;
+        const index = nextCart.findIndex((p) => {
+          const pId = p.id ?? p.product_id;
+          if (pId !== undefined && pId !== null && targetId !== undefined && targetId !== null) {
+            return String(pId) === String(targetId);
+          }
+          return p.name === rawItem.name;
+        });
+
+        if (index === -1) {
+          nextCart.push({
+            ...rawItem,
+            id: targetId !== undefined ? String(targetId) : rawItem.name,
+            product_id: targetId !== undefined ? String(targetId) : rawItem.name,
+            name: rawItem.name,
+            price: Number(rawItem.price) || 0,
+            quantity: qty,
+            image_url: rawItem.image_url || rawItem.image,
+            isManual: false,
+          });
+        } else {
+          nextCart[index] = {
+            ...nextCart[index],
+            image_url: rawItem.image_url || nextCart[index].image_url,
+            quantity: nextCart[index].quantity + qty,
+          };
+        }
+      }
+      return nextCart;
+    });
+  };
+
   const addItemsToCart = (items) => {
     if (!items || !items.length) return;
     setCart((prev) => {
@@ -144,6 +185,7 @@ export function CheckoutProvider({ children }) {
         setCart,
         addItemToCart,
         addItemsToCart,
+        setScannedItems,
         increaseQty,
         decreaseQty,
         products,

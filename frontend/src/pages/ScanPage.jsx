@@ -27,8 +27,10 @@ export default function ScanPage() {
     cart,
     addItemToCart,
     addItemsToCart,
+    setScannedItems,
     increaseQty,
     decreaseQty,
+    resetAll,
     totalAmount,
     API_BASE_URL,
   } = useCheckout();
@@ -386,6 +388,7 @@ export default function ScanPage() {
       "SCANNING"
     );
 
+    setScanData(null);
 
     setScannedResults(
       []
@@ -406,7 +409,7 @@ export default function ScanPage() {
             isMock: true,
           }));
 
-      addItemsToCart(base);
+      setScannedItems(base);
       setScannedResults(
         base
       );
@@ -532,9 +535,8 @@ export default function ScanPage() {
             }));
           }
 
-          if (itemsToAdd.length > 0) {
-            addItemsToCart(itemsToAdd);
-          }
+          // 採用 setScannedItems 取代舊的掃描累積，避免重複吃到歷史紀錄
+          setScannedItems(itemsToAdd);
 
           setScanData(data);
           setScannedResults(itemsToAdd);
@@ -572,7 +574,7 @@ export default function ScanPage() {
           isMock: true,
         }));
 
-    addItemsToCart(fallback);
+    setScannedItems(fallback);
     setScanData({
       cart_items: fallback,
       total_objects_detected: fallback.length,
@@ -658,6 +660,7 @@ export default function ScanPage() {
         "SCANNING"
       );
 
+      setScanData(null);
 
       setScannedResults(
         []
@@ -696,9 +699,8 @@ export default function ScanPage() {
             }));
           }
 
-          if (itemsToAdd.length > 0) {
-            addItemsToCart(itemsToAdd);
-          }
+          // 採用 setScannedItems 取代舊的掃描累積，避免重複吃到歷史紀錄
+          setScannedItems(itemsToAdd);
 
           setScanData(data);
           setScannedResults(itemsToAdd);
@@ -1749,6 +1751,7 @@ export default function ScanPage() {
                       type="button"
                       onClick={() => {
                         setScanPhase("IDLE");
+                        setScanData(null);
                         setUploadedImagePreview(null);
                       }}
                       className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold transition flex items-center gap-1.5 cursor-pointer"
@@ -1761,6 +1764,19 @@ export default function ScanPage() {
                       className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold transition flex items-center gap-1.5 cursor-pointer"
                     >
                       📦 手動選擇商品
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        resetAll();
+                        setScanData(null);
+                        setScanPhase("IDLE");
+                        setUploadedImagePreview(null);
+                      }}
+                      className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-red-50 hover:text-red-600 text-slate-500 text-sm font-bold transition flex items-center gap-1 cursor-pointer"
+                      title="清空目前購物車並重新開始"
+                    >
+                      🗑️ 清空
                     </button>
                   </div>
                 </div>
