@@ -99,6 +99,7 @@ export function CheckoutProvider({ children }) {
     <CheckoutContext.Provider
       value={{
         cart,
+        setCart,
         addItemToCart,
         increaseQty,
         decreaseQty,

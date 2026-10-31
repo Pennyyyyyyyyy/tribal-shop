@@ -9,6 +9,7 @@ import { useNavigate } from "react-router-dom";
 import { useCheckout } from "../context/CheckoutContext";
 import CameraView from "../components/CameraView";
 import RoiEditor from "../components/RoiEditor";
+import CheckoutCartEditor from "../components/CheckoutCartEditor";
 import { useVoiceInstruction } from "../hooks/useVoiceInstruction";
 
 
@@ -26,6 +27,7 @@ export default function ScanPage() {
   const {
     products,
     cart,
+    setCart,
     addItemToCart,
     totalAmount,
     API_BASE_URL,
@@ -42,6 +44,11 @@ export default function ScanPage() {
     scannedResults,
     setScannedResults,
   ] = useState([]);
+
+  const [
+    scanData,
+    setScanData,
+  ] = useState(null);
 
 
   const [
@@ -98,6 +105,11 @@ export default function ScanPage() {
 
 
     formData.append(
+      "file",
+      imageFile,
+      fileName
+    );
+    formData.append(
       "image",
       imageFile,
       fileName
@@ -106,18 +118,29 @@ export default function ScanPage() {
 
     console.log(
       "呼叫 Vision API:",
-      `${API_BASE_URL}/vision/detect-product`
+      `${API_BASE_URL}/vision/scan-table`
     );
 
 
-    const resp =
-      await fetch(
+    let resp;
+    try {
+      resp = await fetch(
+        `${API_BASE_URL}/vision/scan-table`,
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+    } catch (netErr) {
+      console.warn("呼叫 /vision/scan-table 連線異常，嘗試 /vision/detect-product 備援", netErr);
+      resp = await fetch(
         `${API_BASE_URL}/vision/detect-product`,
         {
           method: "POST",
           body: formData,
         }
       );
+    }
 
 
     console.log(
@@ -491,43 +514,29 @@ export default function ScanPage() {
 
 
 
-        if (
-          data.status ===
-            "success" &&
-
-          Array.isArray(
-            data.predictions
-          ) &&
-
-          data.predictions.length >
-            0
-        ) {
-
-          const results =
-            data.predictions.map(
-              (item) => ({
-
-                ...item,
-
-                quantity: 1,
-
-                isMock: false,
-
-              })
-            );
-
-
-          setScannedResults(
-            results
-          );
-
-
-          setScanPhase(
-            "RESULT"
-          );
-
-
-          return;
+        if (data.status === "success") {
+          if (Array.isArray(data.cart_items) && (data.cart_items.length > 0 || data.total_objects_detected > 0)) {
+            setScanData(data);
+            setScannedResults(data.cart_items);
+            setScanPhase("RESULT");
+            return;
+          }
+          if (Array.isArray(data.predictions) && data.predictions.length > 0) {
+            const results = data.predictions.map((item) => ({
+              ...item,
+              product_id: String(item.id || item.product_id),
+              quantity: 1,
+              isMock: false,
+            }));
+            setScanData({
+              cart_items: results,
+              total_objects_detected: results.length,
+              unrecognized_count: 0,
+            });
+            setScannedResults(results);
+            setScanPhase("RESULT");
+            return;
+          }
         }
 
 
@@ -663,43 +672,29 @@ export default function ScanPage() {
         );
 
 
-        if (
-          data.status ===
-            "success" &&
-
-          Array.isArray(
-            data.predictions
-          ) &&
-
-          data.predictions.length >
-            0
-        ) {
-
-          const results =
-            data.predictions.map(
-              (item) => ({
-
-                ...item,
-
-                quantity: 1,
-
-                isMock: false,
-
-              })
-            );
-
-
-          setScannedResults(
-            results
-          );
-
-
-          setScanPhase(
-            "RESULT"
-          );
-
-
-          return;
+        if (data.status === "success") {
+          if (Array.isArray(data.cart_items) && (data.cart_items.length > 0 || data.total_objects_detected > 0)) {
+            setScanData(data);
+            setScannedResults(data.cart_items);
+            setScanPhase("RESULT");
+            return;
+          }
+          if (Array.isArray(data.predictions) && data.predictions.length > 0) {
+            const results = data.predictions.map((item) => ({
+              ...item,
+              product_id: String(item.id || item.product_id),
+              quantity: 1,
+              isMock: false,
+            }));
+            setScanData({
+              cart_items: results,
+              total_objects_detected: results.length,
+              unrecognized_count: 0,
+            });
+            setScannedResults(results);
+            setScanPhase("RESULT");
+            return;
+          }
         }
 
 
@@ -1718,7 +1713,7 @@ export default function ScanPage() {
             : (
 
               /* =================================================
-                  辨識結果
+                  辨識結果 (多商品數量聚合與觸控加減微調)
               ================================================== */
 
               <div
@@ -1728,443 +1723,64 @@ export default function ScanPage() {
                   flex
                   flex-col
                   gap-4
+                  overflow-y-auto
                 "
               >
-
-
-                {/* =============================================
-                    結果工具列
-                ============================================== */}
-
-                <div
-                  className="
-                    flex
-                    items-center
-                    justify-between
-                    gap-3
-                  "
-                >
-
-                  <div
-                    className="
-                      text-sm
-                      text-slate-500
-                    "
-                  >
-
-                    共辨識到
-
-                    <span
-                      className="
-                        mx-1
-                        font-black
-                        text-emerald-600
-                      "
-                    >
-
-                      {
-                        scannedResults.length
-                      }
-
-                    </span>
-
-                    個辨識區結果
-
-                  </div>
-
-
-                  <button
-
-                    onClick={() => {
-
-                      if (
-                        uploadedImagePreview
-                      ) {
-
-                        imageInputRef.current
-                          ?.click();
-
-                      } else {
-
-                        doScan();
-
-                      }
-
-                    }}
-
-                    className="
-                      shrink-0
-                      px-5
-                      py-2.5
-                      rounded-xl
-                      bg-indigo-50
-                      text-indigo-600
-                      font-bold
-                      hover:bg-indigo-100
-                      transition-all
-                    "
-                  >
-
-                    重新辨識
-
-                  </button>
-
-                </div>
-
-
-                {/* =============================================
-                    商品結果 3 × 2
-                ============================================== */}
-
-                <div
-                  className="
-                    flex-1
-                    min-h-0
-                    overflow-auto
-                  "
-                >
-
-                  <div
-                    className="
-                      grid
-                      grid-cols-1
-                      sm:grid-cols-2
-                      lg:grid-cols-3
-                      gap-4
-                    "
-                  >
-
-                    {
-                      scannedResults.map(
-                        (
-                          item,
-                          idx
-                        ) => (
-
-                          <button
-
-                            type="button"
-
-                            key={
-                              `${
-                                item.roi_id ??
-                                "result"
-                              }-${
-                                item.id ??
-                                idx
-                              }-${idx}`
-                            }
-
-                            onClick={() =>
-                              handleSelectProduct(
-                                item
-                              )
-                            }
-
-                            className="
-                              group
-                              min-w-0
-                              bg-white
-                              rounded-2xl
-                              border
-                              border-slate-200
-                              shadow-sm
-                              overflow-hidden
-                              text-left
-                              hover:border-emerald-400
-                              hover:shadow-md
-                              hover:-translate-y-0.5
-                              active:scale-[0.99]
-                              transition-all
-                            "
-                          >
-
-
-                            {/* 商品圖片 */}
-
-                            <div
-                              className="
-                                relative
-                                h-40
-                                bg-slate-50
-                                flex
-                                items-center
-                                justify-center
-                                p-4
-                                group-hover:bg-emerald-50/40
-                                transition-colors
-                              "
-                            >
-
-                              {
-                                item.image_url
-
-                                ? (
-
-                                  <img
-
-                                    src={
-
-                                      item.image_url.startsWith(
-                                        "http"
-                                      )
-
-                                        ? item.image_url
-
-                                        : item.image_url.replace(
-                                            "/uploads/product_photos/",
-                                            "/photo/"
-                                          )
-
-                                    }
-
-                                    alt={
-                                      item.name
-                                    }
-
-                                    className="
-                                      max-w-full
-                                      max-h-full
-                                      object-contain
-                                    "
-
-                                  />
-
-                                )
-
-                                : (
-
-                                  <div
-                                    className="
-                                      text-6xl
-                                    "
-                                  >
-
-                                    {
-                                      item.image ||
-                                      "📦"
-                                    }
-
-                                  </div>
-
-                                )
-                              }
-
-
-                              {
-                                item.roi_name && (
-
-                                  <div
-                                    className="
-                                      absolute
-                                      top-3
-                                      left-3
-                                      bg-slate-900/80
-                                      text-white
-                                      px-2.5
-                                      py-1
-                                      rounded-full
-                                      text-xs
-                                      font-bold
-                                    "
-                                  >
-
-                                    {
-                                      item.roi_name
-                                    }
-
-                                  </div>
-
-                                )
-                              }
-
-                            </div>
-
-
-                            {/* 商品資訊 */}
-
-                            <div
-                              className="
-                                p-4
-                              "
-                            >
-
-                              <div
-                                className="
-                                  text-base
-                                  font-black
-                                  text-slate-800
-                                  truncate
-                                "
-                              >
-
-                                {
-                                  item.name
-                                }
-
-                              </div>
-
-
-                              <div
-                                className="
-                                  mt-1
-                                  flex
-                                  items-end
-                                  justify-between
-                                  gap-2
-                                "
-                              >
-
-                                <div
-                                  className="
-                                    text-xl
-                                    font-black
-                                    text-emerald-600
-                                  "
-                                >
-
-                                  $
-                                  {
-                                    item.price
-                                  }
-
-                                </div>
-
-
-                                <div
-                                  className="
-                                    text-xs
-                                    text-slate-400
-                                  "
-                                >
-
-                                  信心度
-
-                                  <span
-                                    className="
-                                      ml-1
-                                      font-bold
-                                      text-slate-600
-                                    "
-                                  >
-
-                                    {
-                                      Math.round(
-                                        (
-                                          item.confidence ||
-                                          0
-                                        ) *
-                                        100
-                                      )
-                                    }
-
-                                    %
-
-                                  </span>
-
-
-                                  {
-                                    item.isMock &&
-                                    " (模擬)"
-                                  }
-
-                                </div>
-
-                              </div>
-
-
-                              <div
-                                className="
-                                  mt-3
-                                  py-2
-                                  rounded-lg
-                                  bg-emerald-50
-                                  text-emerald-700
-                                  text-center
-                                  text-sm
-                                  font-bold
-                                  opacity-0
-                                  group-hover:opacity-100
-                                  transition-opacity
-                                "
-                              >
-
-                                ＋ 加入購物車
-
-                              </div>
-
-                            </div>
-
-                          </button>
-
-                        )
-                      )
+                <CheckoutCartEditor
+                  initialItems={
+                    scanData?.cart_items ||
+                    scannedResults.map((item) => ({
+                      product_id: String(item.product_id || item.id),
+                      name: item.name,
+                      price: Number(item.price || 0),
+                      image_url: item.image_url,
+                      quantity: item.quantity || 1,
+                    }))
+                  }
+                  totalDetectedCount={
+                    scanData?.total_objects_detected ?? scannedResults.length
+                  }
+                  unrecognizedCount={
+                    scanData?.unrecognized_count ?? 0
+                  }
+                  onRescan={() => {
+                    setScanPhase("IDLE");
+                    setScannedResults([]);
+                    setScanData(null);
+                    if (uploadedImagePreview) {
+                      imageInputRef.current?.click();
                     }
+                  }}
+                  onProceedToPay={(finalItems, total) => {
+                    const formatted = finalItems.map((item) => ({
+                      id: item.product_id,
+                      name: item.name,
+                      price: Number(item.price),
+                      quantity: Number(item.quantity),
+                      image: item.image_url || "🛍️",
+                      image_url: item.image_url,
+                    }));
+                    setCart(formatted);
+                    navigate("/payment");
+                  }}
+                />
 
-                  </div>
-
-                </div>
-
-
-                {/* =============================================
-                    結果頁底部
-                ============================================== */}
-
-                <div
-                  className="
-                    shrink-0
-                    grid
-                    grid-cols-1
-                    sm:grid-cols-2
-                    gap-3
-                  "
-                >
-
+                <div className="flex justify-center gap-4 py-2">
                   <button
-
-                    onClick={() =>
-                      navigate(
-                        "/products"
-                      )
-                    }
-
-                    className="
-                      py-3
-                      rounded-xl
-                      border
-                      border-slate-200
-                      bg-white
-                      text-slate-600
-                      font-bold
-                      hover:bg-slate-50
-                    "
+                    type="button"
+                    onClick={() => navigate("/products")}
+                    className="text-sm text-slate-500 hover:text-slate-800 underline font-medium"
                   >
-
-                    📦 手動選擇商品
-
+                    📦 手動選擇其他商品
                   </button>
-
-
+                  <span className="text-slate-300">|</span>
                   <button
-
-                    onClick={
-                      returnToCamera
-                    }
-
-                    className="
-                      py-3
-                      rounded-xl
-                      bg-indigo-50
-                      text-indigo-600
-                      font-bold
-                      hover:bg-indigo-100
-                    "
+                    type="button"
+                    onClick={returnToCamera}
+                    className="text-sm text-indigo-600 hover:text-indigo-800 font-medium"
                   >
-
-                    📷 返回掃描畫面
-
+                    📷 放棄並返回拍照
                   </button>
-
                 </div>
 
               </div>
