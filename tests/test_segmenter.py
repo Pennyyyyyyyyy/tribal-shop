@@ -34,5 +34,19 @@ class TestSegmenter(unittest.TestCase):
         self.assertEqual(len(masks), 0)
         self.assertEqual(len(boxes), 0)
 
+    def test_slender_object_detection(self):
+        # 測試細長觸控筆與大碗麵並存時，觸控筆能成功獲得種子並切出
+        canvas = np.full((400, 400, 3), 245, dtype=np.uint8)
+        # 大碗 (半徑 60)
+        cv2.circle(canvas, (150, 150), 60, (200, 80, 50), -1)
+        # 細長淺色觸控筆 (寬 10, 高 150, 長寬比 15)
+        cv2.rectangle(canvas, (320, 100), (330, 250), (220, 220, 220), -1)
+        cv2.rectangle(canvas, (320, 100), (330, 250), (100, 100, 100), 1)
+
+        cfg = SegmentConfig()
+        segmenter = WhiteBgSegmenter(cfg)
+        masks, boxes = segmenter.segment(canvas)
+        self.assertEqual(len(boxes), 2, f"應同時偵測到大碗與細長觸控筆，實際偵測到 {len(boxes)}")
+
 if __name__ == "__main__":
     unittest.main()

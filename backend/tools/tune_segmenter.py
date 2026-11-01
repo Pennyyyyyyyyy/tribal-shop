@@ -105,14 +105,14 @@ def evaluate_image(img_path: Path, output_dir: Path):
     # 常用參數對比組合
     test_cases = [
         # (說明, min_area, s_thresh, dist_thresh)
-        ("A. 推薦最佳參數 (S=24, min=1.5%)", 0.015, 24, 0.40),
-        ("B. 舊版標準 (S=28, min=2.0%)", 0.020, 28, 0.42),
-        ("C. 靈敏模式 (S=20, min=1.0%)", 0.010, 20, 0.38),
-        ("D. 抗雜物模式 (S=30, min=2.5%)", 0.025, 30, 0.45),
+        ("A. 最新優化 (支援觸控筆 S=28, min=1.5%)", 0.015, 28, 0.40),
+        ("B. 嚴格抗陰影 (S=30, min=2.0%)", 0.020, 30, 0.42),
+        ("C. 舊版靈敏 (S=24, min=1.5%)", 0.015, 24, 0.40),
+        ("D. 寬鬆細長模式 (S=26, min=1.0%)", 0.010, 26, 0.38),
     ]
 
-    print(f"{'配置名稱':<30} | {'最小面積門檻':<12} | {'飽和度門檻':<10} | {'匡出件數':<8} | {'耗時':<8}")
-    print("-" * 80)
+    print(f"{'配置名稱':<35} | {'最小面積門檻':<12} | {'飽和度門檻':<10} | {'匡出件數':<8} | {'耗時':<8}")
+    print("-" * 85)
 
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -121,7 +121,7 @@ def evaluate_image(img_path: Path, output_dir: Path):
             img_rgb,
             min_area_ratio=min_area,
             max_area_ratio=0.70,
-            max_aspect_ratio=3.8,
+            max_aspect_ratio=25.0,
             containment_threshold=0.85,
             s_thresh_val=s_thresh,
             dist_thresh_val=dist_thresh
