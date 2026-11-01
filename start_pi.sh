@@ -31,7 +31,15 @@ else
     PYTHON_EXEC="python3"
 fi
 
-# 1.1 檢查環境變數檔案 (.env)
+# 1.1 檢查核心 Python 相依套件 (若缺 cv2 則自動安裝 requirements.txt)
+if ! $PYTHON_EXEC -c "import cv2" >/dev/null 2>&1; then
+    echo "📦 偵測到環境中缺少 cv2 (opencv-python-headless)，正在為 $PYTHON_EXEC 安裝相依套件..."
+    $PYTHON_EXEC -m pip install -r "$DIR/backend/requirements.txt" || {
+        echo "⚠️ 自動安裝失敗，請手動執行: $PYTHON_EXEC -m pip install -r backend/requirements.txt"
+    }
+fi
+
+# 1.2 檢查環境變數檔案 (.env)
 if [ ! -f "$DIR/backend/.env" ] && [ -f "$DIR/backend/.env.example" ]; then
     echo "⚠️ 找不到 backend/.env，自動由 backend/.env.example 建立預設檔..."
     cp "$DIR/backend/.env.example" "$DIR/backend/.env"
@@ -42,7 +50,7 @@ if [ ! -f "$DIR/frontend/.env" ] && [ -f "$DIR/frontend/.env.example" ]; then
     cp "$DIR/frontend/.env.example" "$DIR/frontend/.env"
 fi
 
-# 1.2 設定 ARM CPU 指令集相容環境變數 (防範 OpenBLAS / ATen 誤判指令集導致無效指令 SIGILL)
+# 1.3 設定 ARM CPU 指令集相容環境變數 (防範 OpenBLAS / ATen 誤判指令集導致無效指令 SIGILL)
 export ATEN_CPU_CAPABILITY=default
 export OPENBLAS_CORETYPE=ARMV8
 export OMP_NUM_THREADS=2
