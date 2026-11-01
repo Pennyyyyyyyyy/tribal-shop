@@ -208,4 +208,5 @@ __marimo__/
 
 # Tool evaluation outputs
 backend/tools/output/
+backend/tools/testphoto/
 backend/test_samples/

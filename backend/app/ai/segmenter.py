@@ -5,11 +5,13 @@ from dataclasses import dataclass
 
 @dataclass
 class SegmentConfig:
-    min_area_ratio: float = 0.02        # 最小商品面積佔比 (過濾碎塊)
-    max_area_ratio: float = 0.65        # 最大商品面積佔比 (過濾整張白桌面)
+    min_area_ratio: float = 0.015       # 最小商品面積佔比 (過濾碎塊，下修至 1.5% 容納較小商品)
+    max_area_ratio: float = 0.70        # 最大商品面積佔比 (放寬至 70% 容納近距大碗麵)
     max_aspect_ratio: float = 3.8       # 最大長寬比 (過濾畫面邊緣入鏡的木桌邊條)
     containment_threshold: float = 0.85 # 內部包含重疊門檻 (過濾商品內部的文字/大色塊)
     max_process_dim: int = 800          # 分割前處理最大邊長 (等比降採樣大幅加速 CPU 運算)
+    s_thresh: int = 24                  # HSV S 通道飽和度門檻 (精準分離彩色包裝與灰白桌面陰影)
+    dist_threshold: float = 0.40        # 分水嶺前置距離變換種子閥值 (0.40 可穩健分離緊靠商品)
 
 
 class WhiteBgSegmenter:
@@ -44,18 +46,14 @@ class WhiteBgSegmenter:
 
         blurred = cv2.bilateralFilter(proc_rgb, d=9, sigmaColor=75, sigmaSpace=75)
         hsv = cv2.cvtColor(blurred, cv2.COLOR_RGB2HSV)
-        gray = cv2.cvtColor(blurred, cv2.COLOR_RGB2GRAY)
 
-        # 1. 取飽和度 S 通道 (抗桌面灰黑陰影)
-        _, s_thresh = cv2.threshold(hsv[:, :, 1], 28, 255, cv2.THRESH_BINARY)
+        # 1. 取飽和度 S 通道 (抗白底桌面灰黑陰影)
+        _, s_thresh = cv2.threshold(hsv[:, :, 1], self.cfg.s_thresh, 255, cv2.THRESH_BINARY)
 
-        # 2. 光照差分 + Canny 邊緣 (抓出白色包裝商品與白桌面的立體邊界)
-        bg_illum = cv2.GaussianBlur(gray, (0, 0), sigmaX=max(h, w) * 0.05)
-        diff = cv2.absdiff(gray, bg_illum)
-        _, diff_thresh = cv2.threshold(diff, 18, 255, cv2.THRESH_BINARY)
+        # 2. Canny 邊緣檢測 (抓出白色/淺色包裝商品與白桌面的立體邊界)
         edges = cv2.Canny(blurred, 35, 110)
 
-        combined = cv2.bitwise_or(cv2.bitwise_or(s_thresh, diff_thresh), edges)
+        combined = cv2.bitwise_or(s_thresh, edges)
 
         # 3. 形態學閉運算連通邊界，並以 RETR_EXTERNAL 填滿內部反光破洞
         kernel_close = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (15, 15))
@@ -72,7 +70,7 @@ class WhiteBgSegmenter:
         dist = cv2.distanceTransform(opened, cv2.DIST_L2, 5)
         if dist.max() == 0:
             return [], []
-        _, sure_fg = cv2.threshold(dist, 0.42 * dist.max(), 255, 0)
+        _, sure_fg = cv2.threshold(dist, self.cfg.dist_threshold * dist.max(), 255, 0)
         sure_fg = np.uint8(sure_fg)
         unknown = cv2.subtract(opened, sure_fg)
 

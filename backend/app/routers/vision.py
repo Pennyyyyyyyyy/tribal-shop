@@ -51,7 +51,7 @@ router = APIRouter()
 SEGMENTER = WhiteBgSegmenter()
 ONNX_MODEL_FILE = Path(__file__).resolve().parent.parent / "ai" / "best_efficientnet_model.onnx"
 EMBEDDER = OnnxEfficientNetEmbedder(ONNX_MODEL_FILE) if ONNX_MODEL_FILE.is_file() else None
-SIMILARITY_THRESHOLD = float(os.getenv("SIMILARITY_THRESHOLD", "0.65"))
+SIMILARITY_THRESHOLD = float(os.getenv("SIMILARITY_THRESHOLD", "0.58"))
 
 
 

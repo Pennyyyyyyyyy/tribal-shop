@@ -65,13 +65,12 @@ def draw_detection_boxes(img_bgr: np.ndarray, boxes: list[list[int]], masks: lis
 
 def run_single_test(
     img_rgb: np.ndarray,
-    min_area_ratio: float,
-    max_area_ratio: float,
-    max_aspect_ratio: float,
-    containment_threshold: float,
-    s_thresh_val: int = 28,
-    diff_thresh_val: int = 18,
-    dist_thresh_val: float = 0.42
+    min_area_ratio: float = 0.015,
+    max_area_ratio: float = 0.70,
+    max_aspect_ratio: float = 3.8,
+    containment_threshold: float = 0.85,
+    s_thresh_val: int = 24,
+    dist_thresh_val: float = 0.40
 ) -> tuple[list[list[int]], list[np.ndarray], float]:
     """執行單次分割測試並記錄耗時"""
     cfg = SegmentConfig(
@@ -79,90 +78,12 @@ def run_single_test(
         max_area_ratio=max_area_ratio,
         max_aspect_ratio=max_aspect_ratio,
         containment_threshold=containment_threshold,
-        max_process_dim=800
+        max_process_dim=800,
+        s_thresh=s_thresh_val,
+        dist_threshold=dist_thresh_val
     )
-
-    # 動態繼承微調底層二值化閥值
-    class CustomSegmenter(WhiteBgSegmenter):
-        def segment(self, img):
-            # 暫時覆寫內部 threshold 常數
-            orig_h, orig_w = img.shape[:2]
-            scale = 800.0 / float(max(orig_h, orig_w)) if max(orig_h, orig_w) > 800 else 1.0
-            pw, ph = max(1, int(round(orig_w * scale))), max(1, int(round(orig_h * scale)))
-            p_rgb = cv2.resize(img, (pw, ph), interpolation=cv2.INTER_AREA) if scale < 1.0 else img
-            
-            blurred = cv2.bilateralFilter(p_rgb, d=9, sigmaColor=75, sigmaSpace=75)
-            hsv = cv2.cvtColor(blurred, cv2.COLOR_RGB2HSV)
-            gray = cv2.cvtColor(blurred, cv2.COLOR_RGB2GRAY)
-
-            _, s_thresh = cv2.threshold(hsv[:, :, 1], s_thresh_val, 255, cv2.THRESH_BINARY)
-            bg_illum = cv2.GaussianBlur(gray, (0, 0), sigmaX=max(ph, pw) * 0.05)
-            diff = cv2.absdiff(gray, bg_illum)
-            _, diff_thresh = cv2.threshold(diff, diff_thresh_val, 255, cv2.THRESH_BINARY)
-            edges = cv2.Canny(blurred, 35, 110)
-
-            combined = cv2.bitwise_or(cv2.bitwise_or(s_thresh, diff_thresh), edges)
-            kernel_close = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (15, 15))
-            closed = cv2.morphologyEx(combined, cv2.MORPH_CLOSE, kernel_close, iterations=2)
-
-            contours, _ = cv2.findContours(closed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-            filled_canvas = np.zeros((ph, pw), dtype=np.uint8)
-            cv2.drawContours(filled_canvas, contours, -1, 255, thickness=cv2.FILLED)
-
-            kernel_open = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (9, 9))
-            opened = cv2.morphologyEx(filled_canvas, cv2.MORPH_OPEN, kernel_open, iterations=1)
-
-            dist = cv2.distanceTransform(opened, cv2.DIST_L2, 5)
-            if dist.max() == 0:
-                return [], []
-            _, sure_fg = cv2.threshold(dist, dist_thresh_val * dist.max(), 255, 0)
-            sure_fg = np.uint8(sure_fg)
-            unknown = cv2.subtract(opened, sure_fg)
-
-            _, markers = cv2.connectedComponents(sure_fg)
-            markers = markers + 1
-            markers[unknown == 255] = 0
-            markers = cv2.watershed(cv2.cvtColor(p_rgb, cv2.COLOR_RGB2BGR), markers)
-
-            candidates = []
-            total_area = float(ph * pw)
-            for marker_id in np.unique(markers):
-                if marker_id <= 1:
-                    continue
-                mask = (markers == marker_id)
-                area = float(np.sum(mask))
-                if area < (self.cfg.min_area_ratio * total_area) or area > (self.cfg.max_area_ratio * total_area):
-                    continue
-                ys, xs = np.where(mask)
-                if len(xs) == 0 or len(ys) == 0:
-                    continue
-                x1, y1, x2, y2 = int(xs.min()), int(ys.min()), int(xs.max()), int(ys.max())
-                bw, bh = (x2 - x1), (y2 - y1)
-                if (max(bw, bh) / (min(bw, bh) + 1e-5)) > self.cfg.max_aspect_ratio:
-                    continue
-                candidates.append((mask, [x1, y1, x2, y2], area))
-
-            candidates.sort(key=lambda x: x[2], reverse=True)
-            f_masks, f_boxes = [], []
-            for cand_mask, cand_box, cand_area in candidates:
-                is_inside = any(
-                    (np.logical_and(cand_mask, kept_mask).sum() / cand_area) > self.cfg.containment_threshold
-                    for kept_mask in f_masks
-                )
-                if not is_inside:
-                    f_masks.append(cand_mask)
-                    f_boxes.append(cand_box)
-
-            if scale < 1.0 and scale > 0:
-                res_boxes = [
-                    [int(round(x1 / scale)), int(round(y1 / scale)), int(round(x2 / scale)), int(round(y2 / scale))]
-                    for x1, y1, x2, y2 in f_boxes
-                ]
-                return f_masks, res_boxes
-            return f_masks, f_boxes
-
+    segmenter = WhiteBgSegmenter(cfg)
     t0 = time.time()
-    segmenter = CustomSegmenter(cfg)
     masks, boxes = segmenter.segment(img_rgb)
     elapsed = time.time() - t0
     return boxes, masks, elapsed
@@ -184,15 +105,14 @@ def evaluate_image(img_path: Path, output_dir: Path):
     # 常用參數對比組合
     test_cases = [
         # (說明, min_area, s_thresh, dist_thresh)
-        ("A. 預設標準參數", 0.02, 28, 0.42),
-        ("B. 靈敏模式 (抓小商品)", 0.01, 24, 0.40),
-        ("C. 極度靈敏 (超小糖果/包裝)", 0.005, 20, 0.38),
-        ("D. 抗雜物模式 (過濾陰影/碎屑)", 0.03, 32, 0.45),
-        ("E. 嚴格抗陰影 (深色桌緣或強陰影)", 0.04, 38, 0.48),
+        ("A. 推薦最佳參數 (S=24, min=1.5%)", 0.015, 24, 0.40),
+        ("B. 舊版標準 (S=28, min=2.0%)", 0.020, 28, 0.42),
+        ("C. 靈敏模式 (S=20, min=1.0%)", 0.010, 20, 0.38),
+        ("D. 抗雜物模式 (S=30, min=2.5%)", 0.025, 30, 0.45),
     ]
 
-    print(f"{'配置名稱':<24} | {'最小面積門檻':<12} | {'飽和度門檻':<10} | {'匡出件數':<8} | {'耗時':<8}")
-    print("-" * 75)
+    print(f"{'配置名稱':<30} | {'最小面積門檻':<12} | {'飽和度門檻':<10} | {'匡出件數':<8} | {'耗時':<8}")
+    print("-" * 80)
 
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -200,7 +120,7 @@ def evaluate_image(img_path: Path, output_dir: Path):
         boxes, _, elapsed = run_single_test(
             img_rgb,
             min_area_ratio=min_area,
-            max_area_ratio=0.65,
+            max_area_ratio=0.70,
             max_aspect_ratio=3.8,
             containment_threshold=0.85,
             s_thresh_val=s_thresh,
@@ -212,7 +132,7 @@ def evaluate_image(img_path: Path, output_dir: Path):
         out_path = output_dir / out_name
         cv2.imwrite(str(out_path), annotated)
 
-        print(f"{name:<24} | {min_area*100:>5.1f}%       | {s_thresh:>6}     | {len(boxes):>4} 件   | {elapsed*1000:>5.1f}ms")
+        print(f"{name:<30} | {min_area*100:>5.1f}%       | {s_thresh:>6}     | {len(boxes):>4} 件   | {elapsed*1000:>5.1f}ms")
 
     print(f"\n📁 標註畫框結果圖已儲存至: {output_dir}/")
     print(f"👉 打開資料夾即可一眼看出哪一個參數切出的框最乾淨！")
