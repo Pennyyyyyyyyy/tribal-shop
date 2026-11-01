@@ -77,7 +77,7 @@ class TestScanTableApi(unittest.TestCase):
                 "image_url": "noodle.jpg",
                 "stock": 5,
                 "label_name": "noodle",
-                "similarity": 0.50
+                "similarity": 0.20
             }
         ]
 
@@ -85,7 +85,7 @@ class TestScanTableApi(unittest.TestCase):
         self.assertEqual(len(results), 2)
         self.assertIsNotNone(results[0])
         self.assertEqual(results[0]["name"], "高山茶")
-        # 相似度 0.50 低於門檻 0.65 應判定為 None (未辨識)
+        # 相似度 0.20 低於門檻應判定為 None (未辨識)
         self.assertIsNone(results[1])
 
 if __name__ == "__main__":
