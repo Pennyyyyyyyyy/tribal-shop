@@ -5,13 +5,13 @@ from dataclasses import dataclass
 
 @dataclass
 class SegmentConfig:
-    min_area_ratio: float = 0.025       # 最小商品面積佔比 (2.5% 抗雜物與陰影)
-    max_area_ratio: float = 0.70        # 最大商品面積佔比 (放寬至 70% 容納近距大碗麵)
-    max_aspect_ratio: float = 3.8       # 最大長寬比 (過濾畫面邊緣入鏡的木桌邊條)
+    min_area_ratio: float = 0.035       # 最小商品面積佔比 (3.5% 針對外接鏡頭，抗碎角陰影與多餘分割碎片)
+    max_area_ratio: float = 0.85        # 最大商品面積佔比 (放寬至 85% 容納外接鏡頭近距大碗麵)
+    max_aspect_ratio: float = 4.5       # 最大長寬比 (放寬至 4.5 避免碗麵局部切邊被誤濾)
     containment_threshold: float = 0.85 # 內部包含重疊門檻 (過濾商品內部的文字/大色塊)
     max_process_dim: int = 800          # 分割前處理最大邊長 (等比降採樣大幅加速 CPU 運算)
-    s_thresh: int = 30                  # HSV S 通道飽和度門檻 (30，乾淨分離陰影與商品)
-    dist_threshold: float = 0.45        # 分水嶺前置距離變換種子閥值 (0.45)
+    s_thresh: int = 52                  # HSV S 通道飽和度門檻 (52，外接鏡頭桌面 S~35-46，調至 52 徹底抗反光灰桌面與暗角)
+    dist_threshold: float = 0.45        # 分水嶺前置距離變換種子閥值 (0.45 穩健分離相鄰多件商品)
 
 
 class WhiteBgSegmenter:
@@ -66,6 +66,7 @@ class WhiteBgSegmenter:
         # 4. 距離變換與分水嶺 (分離輕微相連的陰影區塊)
         kernel_open = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (9, 9))
         opened = cv2.morphologyEx(filled_canvas, cv2.MORPH_OPEN, kernel_open, iterations=1)
+
 
         dist = cv2.distanceTransform(opened, cv2.DIST_L2, 5)
         if dist.max() == 0:

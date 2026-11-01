@@ -104,11 +104,11 @@ def evaluate_image(img_path: Path, output_dir: Path):
 
     # 常用參數對比組合
     test_cases = [
-        # (說明, min_area, s_thresh, dist_thresh)
-        ("A. 最新優化 (支援觸控筆 S=28, min=1.5%)", 0.015, 28, 0.40),
-        ("B. 嚴格抗陰影 (S=30, min=2.0%)", 0.020, 30, 0.42),
-        ("C. 舊版靈敏 (S=24, min=1.5%)", 0.015, 24, 0.40),
-        ("D. 寬鬆細長模式 (S=26, min=1.0%)", 0.010, 26, 0.38),
+        # (說明, min_area, s_thresh, dist_thresh, max_area)
+        ("A. 外接鏡頭最佳推薦 (S=52, min=3.8%, dist=0.45)", 0.038, 52, 0.45, 0.85),
+        ("B. 外接鏡頭高靈敏 (S=48, min=3.5%, dist=0.42)", 0.035, 48, 0.42, 0.85),
+        ("C. 外接鏡頭強抗噪 (S=55, min=4.5%, dist=0.45)", 0.045, 55, 0.45, 0.85),
+        ("D. 舊版手機拍攝參數 (S=30, min=2.5%, dist=0.45)", 0.025, 30, 0.45, 0.70),
     ]
 
     print(f"{'配置名稱':<35} | {'最小面積門檻':<12} | {'飽和度門檻':<10} | {'匡出件數':<8} | {'耗時':<8}")
@@ -116,12 +116,12 @@ def evaluate_image(img_path: Path, output_dir: Path):
 
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    for name, min_area, s_thresh, dist_thresh in test_cases:
+    for name, min_area, s_thresh, dist_thresh, max_area in test_cases:
         boxes, _, elapsed = run_single_test(
             img_rgb,
             min_area_ratio=min_area,
-            max_area_ratio=0.70,
-            max_aspect_ratio=25.0,
+            max_area_ratio=max_area,
+            max_aspect_ratio=4.5,
             containment_threshold=0.85,
             s_thresh_val=s_thresh,
             dist_thresh_val=dist_thresh
