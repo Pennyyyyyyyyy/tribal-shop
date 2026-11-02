@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import AnnouncementPopup from "../components/AnnouncementPopup";
 import { useAnnouncement } from "../context/AnnouncementContext";
 
+const PASSWORD_LENGTH = 4;
+
 export default function AuthPage() {
   const navigate = useNavigate();
   const { openPopup, dismissed } = useAnnouncement();
@@ -40,7 +42,7 @@ export default function AuthPage() {
 
   const onPressDigit = (d) => {
     if (authLocked) return;
-    if (authPassword.length >= 4) return;
+    if (authPassword.length >= PASSWORD_LENGTH) return;
     setAuthPassword((prev) => prev + d);
   };
 
@@ -49,93 +51,108 @@ export default function AuthPage() {
     setAuthPassword("");
   };
 
+  const onBackspace = () => {
+    if (authLocked) return;
+    setAuthPassword((prev) => prev.slice(0, -1));
+  };
+
+  const keyClass = "btn-press h-[84px] bg-paper text-[34px] text-ink";
+
   return (
-    <div className="w-full h-full relative">
+    <div className="flex-1 grid grid-cols-[minmax(0,1fr)_440px] gap-[72px] px-16 items-center">
       <AnnouncementPopup />
 
-      <button
-        type="button"
-        onClick={() => navigate("/")}
-        className="absolute top-6 left-6 text-slate-600 hover:text-slate-900"
-      >
-        ← 返回首頁
-      </button>
+      <div className="flex flex-col gap-5">
+        <button
+          type="button"
+          onClick={() => navigate("/")}
+          className="btn-ghost self-start h-12 px-[22px] text-[17px]"
+        >
+          返回首頁
+        </button>
+        <h1 className="mt-3 font-display text-[56px] leading-tight">賒帳身份驗證</h1>
+        <p className="text-[22px] leading-relaxed opacity-85">
+          請輸入通關密碼，完成身份確認。
+        </p>
 
-      <div className="flex-1 flex items-center justify-center h-full">
-        <div className="w-full max-w-xl flex flex-col items-center gap-6 px-6">
-          <h2 className="text-4xl font-black text-center text-slate-900">
-            賒帳身份驗證
-          </h2>
-
-          <p className="text-slate-600 text-center">
-            請輸入密碼完成身份確認。
-          </p>
-
-          <div className="grid grid-cols-5 gap-4 w-full">
-            {["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"].map((n) => (
-              <button
-                key={n}
-                type="button"
-                data-testid={`keypad-${n}`}
-                onClick={() => onPressDigit(n)}
-                disabled={authLocked}
-                className={`h-16 rounded-2xl shadow text-xl font-semibold transition ${
-                  authLocked
-                    ? "bg-slate-200 cursor-not-allowed"
-                    : "bg-white hover:bg-slate-100 active:scale-95"
-                }`}
-              >
-                {n}
-              </button>
-            ))}
-          </div>
-
-          <div className="w-full">
-            <div className="text-slate-700 font-semibold mb-2">輸入的密碼</div>
-            <input
-              value={"●".repeat(authPassword.length)}
-              readOnly
-              className="w-full h-14 rounded-2xl border border-slate-200 bg-white px-4 text-lg"
-              placeholder="請輸入密碼"
-            />
-          </div>
-
-          {authErrorMsg && (
-            <div className="w-full rounded-2xl bg-rose-50 border border-rose-200 px-4 py-3 text-rose-700">
-              {authErrorMsg}
-            </div>
+        <div className="mt-3 text-[17px] font-bold" id="pw-label">輸入的密碼</div>
+        <div
+          aria-labelledby="pw-label"
+          aria-live="polite"
+          className="h-[84px] border-[3px] border-ink rounded-[20px] bg-paper flex items-center gap-[18px] px-7"
+        >
+          {Array.from({ length: PASSWORD_LENGTH }).map((_, i) =>
+            i < authPassword.length ? (
+              <span key={i} className="w-[18px] h-[18px] rounded-full bg-ink" />
+            ) : (
+              <span key={i} className="w-[18px] h-[18px] rounded-full border-[3px] border-ink/30" />
+            )
           )}
-
-          <div className="flex items-center gap-4 w-full">
-            <button
-              type="button"
-              data-testid="btn-clear"
-              onClick={onClear}
-              disabled={authLocked}
-              className={`flex-1 h-14 rounded-2xl shadow font-semibold transition ${
-                authLocked
-                  ? "bg-slate-200 cursor-not-allowed"
-                  : "bg-white hover:bg-slate-100"
-              }`}
-            >
-              清除
-            </button>
-
-            <button
-              type="button"
-              data-testid="btn-confirm"
-              onClick={handleAuthConfirm}
-              disabled={authLocked || authPassword.length < 4}
-              className={`flex-1 h-14 rounded-2xl shadow font-semibold text-white transition ${
-                authLocked || authPassword.length < 4
-                  ? "bg-emerald-300 cursor-not-allowed"
-                  : "bg-emerald-600 hover:bg-emerald-700"
-              }`}
-            >
-              確認
-            </button>
-          </div>
+          <span className="sr-only">已輸入 {authPassword.length} 位</span>
         </div>
+
+        {authErrorMsg && (
+          <div className="border-2 border-clay bg-peach rounded-2xl px-5 py-3.5 text-[17px] font-medium">
+            {authErrorMsg}
+          </div>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-5">
+        <div className="grid grid-cols-3 gap-4">
+          {["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((n) => (
+            <button
+              key={n}
+              type="button"
+              data-testid={`keypad-${n}`}
+              onClick={() => onPressDigit(n)}
+              disabled={authLocked}
+              className={keyClass}
+            >
+              {n}
+            </button>
+          ))}
+          <button
+            type="button"
+            data-testid="btn-clear"
+            onClick={onClear}
+            disabled={authLocked}
+            className="btn-ghost h-[84px] text-[22px]"
+          >
+            清除
+          </button>
+          <button
+            type="button"
+            data-testid="keypad-0"
+            onClick={() => onPressDigit("0")}
+            disabled={authLocked}
+            className={keyClass}
+          >
+            0
+          </button>
+          <button
+            type="button"
+            onClick={onBackspace}
+            disabled={authLocked}
+            className="btn-ghost h-[84px]"
+            aria-label="刪除一位"
+          >
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M21 5H9l-6 7 6 7h12a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1z" />
+              <path d="M17 9l-6 6M11 9l6 6" />
+            </svg>
+          </button>
+        </div>
+
+        <button
+          type="button"
+          data-testid="btn-confirm"
+          onClick={handleAuthConfirm}
+          disabled={authLocked || authPassword.length < PASSWORD_LENGTH}
+          className="btn-press mt-2 h-[88px] bg-forest text-paper text-[32px]"
+        >
+          確認
+        </button>
       </div>
     </div>
   );

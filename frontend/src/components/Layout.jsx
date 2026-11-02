@@ -27,26 +27,30 @@ const TRIBAL_STEP_MAP = {
 };
 const TRIBAL_TOTAL = 6;
 
+// 歡迎頁與完成頁是滿版插畫，不顯示頂欄
+const FULL_BLEED_PATHS = new Set(["/", "/complete"]);
+
 export default function Layout() {
   const location = useLocation();
-  const { cartCount, totalAmount, isTribalMember } = useCheckout();
+  const { isTribalMember } = useCheckout();
 
   const stepMap = isTribalMember ? TRIBAL_STEP_MAP : GUEST_STEP_MAP;
   const totalSteps = isTribalMember ? TRIBAL_TOTAL : GUEST_TOTAL;
   const currentStep = stepMap[location.pathname] || 1;
 
+  if (FULL_BLEED_PATHS.has(location.pathname)) {
+    return (
+      <div className="h-screen flex flex-col bg-cream text-ink overflow-hidden">
+        <Outlet />
+      </div>
+    );
+  }
+
   return (
-    <div className="h-screen flex flex-col bg-slate-100 overflow-hidden">
-      <Header
-        currentStep={currentStep}
-        totalSteps={totalSteps}
-        cartCount={cartCount}
-        totalAmount={totalAmount}
-      />
-      <main className="flex-1 flex justify-center px-4 py-6 min-h-0">
-        <div className="w-full max-w-6xl bg-slate-50 rounded-3xl shadow-2xl border border-slate-200 p-6 md:p-8 flex flex-col min-h-0">
-          <Outlet />
-        </div>
+    <div className="h-screen flex flex-col bg-cream text-ink overflow-hidden">
+      <Header currentStep={currentStep} totalSteps={totalSteps} />
+      <main className="flex-1 flex flex-col min-h-0 px-8 py-6">
+        <Outlet />
       </main>
     </div>
   );

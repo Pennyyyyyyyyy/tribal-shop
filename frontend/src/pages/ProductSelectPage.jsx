@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCheckout } from "../context/CheckoutContext";
+import CartIcon from "../components/CartIcon";
 
 const normalizeCategory = (c) => (c || "").trim();
 
@@ -43,112 +44,107 @@ export default function ProductSelectPage() {
     setQuantities((prev) => ({ ...prev, [item.name]: 1 }));
   };
 
-  return (
-    <div className="w-full flex-1 min-h-0 flex gap-4">
-      {/* 左側類別欄 */}
-      <div className="w-28 shrink-0 flex flex-col gap-2 pt-2">
-        <h3 className="text-sm font-semibold text-slate-500 mb-1 px-2">
-          類別
-        </h3>
-        {categories.map((cat) => (
-          <button
-            key={cat.key}
-            onClick={() => setActiveCategory(cat.key)}
-            className={`w-full text-left px-4 py-3 rounded-2xl text-base font-semibold transition ${activeCategory === cat.key
-              ? "bg-emerald-600 text-white shadow-md"
-              : "bg-white text-slate-700 hover:bg-slate-100"
-              }`}
-          >
-            {cat.label}
-          </button>
-        ))}
+  const stepClass =
+    "focus-ring w-[34px] h-[34px] rounded-full bg-paper text-xl font-bold flex items-center justify-center active:scale-95 transition";
 
-        <div className="mt-auto pt-4">
-          <button
-            onClick={() => navigate("/scan")}
-            className="w-full px-3 py-3 rounded-2xl bg-slate-200 text-slate-700 text-sm font-semibold hover:bg-slate-300 transition"
-          >
-            返回掃描
-          </button>
+  return (
+    <div className="flex-1 min-h-0 grid grid-cols-[150px_minmax(0,1fr)] gap-6">
+      {/* 左側類別欄 */}
+      <nav className="flex flex-col gap-3 min-h-0" aria-label="類別">
+        <div className="text-[15px] font-bold pl-1">類別</div>
+        <div className="flex flex-col gap-3 overflow-y-auto">
+          {categories.map((cat) => (
+            <button
+              key={cat.key}
+              onClick={() => setActiveCategory(cat.key)}
+              aria-pressed={activeCategory === cat.key}
+              className={`focus-ring shrink-0 h-14 rounded-2xl border-[3px] px-[18px] text-left text-lg font-bold transition ${
+                activeCategory === cat.key
+                  ? "bg-clay text-paper border-ink shadow-press-sm"
+                  : "bg-paper border-sand hover:border-clay"
+              }`}
+            >
+              {cat.label}
+            </button>
+          ))}
         </div>
-      </div>
+        <button
+          onClick={() => navigate("/scan")}
+          className="btn-ghost mt-auto h-14 text-[17px] shrink-0"
+        >
+          返回掃描
+        </button>
+      </nav>
 
       {/* 右側商品區 */}
-      <div className="flex-1 flex flex-col min-h-0">
-        <div
-          className="flex-1 overflow-y-scroll pr-3
-            [&::-webkit-scrollbar]:w-2
-            [&::-webkit-scrollbar-track]:bg-slate-100
-            [&::-webkit-scrollbar-track]:rounded-full
-            [&::-webkit-scrollbar-thumb]:bg-slate-400
-            [&::-webkit-scrollbar-thumb]:rounded-full
-            hover:[&::-webkit-scrollbar-thumb]:bg-slate-500"
-        >
-          <div className="flex flex-wrap gap-3">
+      <div className="flex flex-col gap-5 min-h-0">
+        <div className="flex-1 min-h-0 overflow-y-auto p-0.5 pb-2">
+          <div className="grid grid-cols-4 gap-5">
             {filtered.map((item) => (
-              <div
+              <article
                 key={item.name}
                 data-testid={`product-card-${item.name}`}
-                className="w-44 flex-none bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col"
+                className="bg-paper border-[3px] border-ink rounded-[22px] shadow-press overflow-hidden"
               >
-                <div className="w-full h-44 bg-slate-50 flex items-center justify-center p-3 shrink-0">
+                <div className="h-[120px] bg-wheat border-b-[3px] border-ink flex items-center justify-center p-2">
                   <img
                     src={item.image_url}
                     alt={item.name}
-                    className="max-w-full max-h-full object-contain mx-auto"
+                    className="max-h-full max-w-full object-contain rounded-md"
                   />
                 </div>
 
-                <div className="p-3 flex flex-col gap-1.5">
-                  <div className="text-sm font-bold text-slate-800 truncate">
-                    {item.name}
-                  </div>
-                  <div className="text-base font-bold text-emerald-700">
-                    ${item.price}
+                <div className="px-3.5 pt-3 pb-3.5 flex flex-col gap-2.5">
+                  <div className="flex justify-between items-baseline gap-2">
+                    <span className="font-bold text-lg truncate">{item.name}</span>
+                    <span className="font-display text-[22px] text-rust shrink-0">NT${item.price}</span>
                   </div>
 
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex gap-2.5 items-center">
+                    <div className="flex items-center gap-1.5 bg-wheat rounded-full p-1">
+                      <button
+                        onClick={() => setQty(item.name, getQty(item.name) - 1)}
+                        className={stepClass}
+                        aria-label="減少"
+                      >
+                        −
+                      </button>
+                      <span className="min-w-4 text-center font-bold text-lg">
+                        {getQty(item.name)}
+                      </span>
+                      <button
+                        onClick={() => setQty(item.name, getQty(item.name) + 1)}
+                        className={stepClass}
+                        aria-label="增加"
+                      >
+                        +
+                      </button>
+                    </div>
+
                     <button
-                      onClick={() => setQty(item.name, getQty(item.name) - 1)}
-                      className="w-8 h-8 rounded-lg bg-slate-100 text-slate-700 text-base font-bold hover:bg-slate-200 active:scale-95 transition"
+                      data-testid={`btn-add-${item.name}`}
+                      onClick={() => handleAdd(item)}
+                      className="btn-press flex-1 h-11 rounded-[14px] shadow-press-sm bg-forest text-paper text-lg"
                     >
-                      -
-                    </button>
-                    <span className="w-6 text-center text-base font-bold text-slate-800">
-                      {getQty(item.name)}
-                    </span>
-                    <button
-                      onClick={() => setQty(item.name, getQty(item.name) + 1)}
-                      className="w-8 h-8 rounded-lg bg-slate-100 text-slate-700 text-base font-bold hover:bg-slate-200 active:scale-95 transition"
-                    >
-                      +
+                      加入
                     </button>
                   </div>
-
-                  <button
-                    data-testid={`btn-add-${item.name}`}
-                    onClick={() => handleAdd(item)}
-                    className="w-full px-3 py-2 rounded-xl bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-500 shadow-md active:scale-95 transition"
-                  >
-                    加入購物車
-                  </button>
                 </div>
-              </div>
+              </article>
             ))}
           </div>
         </div>
 
         {/* 底部購物車列 */}
-        <div className="mt-3 bg-white rounded-2xl border border-slate-200 px-5 py-3 flex items-center justify-between">
-          <div className="text-slate-700">
-            <span className="text-sm text-slate-500">購物車</span>
-            <span className="text-xl font-bold ml-2">
-              {cart.length} 項 · ${totalAmount}
-            </span>
-          </div>
+        <div className="panel flex items-center gap-4 py-3.5 pr-4 pl-7 shrink-0">
+          <CartIcon />
+          <span className="text-[17px]">購物車</span>
+          <span className="font-display text-[30px]">
+            {cart.length} 項 · NT${totalAmount}
+          </span>
           <button
             onClick={() => navigate("/cart")}
-            className="px-6 py-3 rounded-2xl bg-sky-600 text-white font-bold text-lg hover:bg-sky-500 shadow-lg active:scale-95 transition"
+            className="btn-press ml-auto h-16 px-[34px] bg-clay text-paper text-[26px]"
           >
             查看清單
           </button>

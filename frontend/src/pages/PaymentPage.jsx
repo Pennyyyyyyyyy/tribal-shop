@@ -74,76 +74,91 @@ export default function PaymentPage() {
 
   if (isTribalMember) {
     return (
-      <div className="flex flex-col items-center justify-center h-full space-y-6 text-center">
-        <h2 className="text-3xl font-bold text-slate-800">結帳</h2>
-        <p className="text-lg text-slate-600">
-          你目前選的是「族人」，請使用賒帳流程結帳。
-        </p>
-        <div className="flex flex-col md:flex-row gap-4">
+      <div className="flex-1 flex flex-col items-center justify-center gap-6 text-center">
+        <h1 className="font-display text-[44px]">結帳</h1>
+        <p className="text-[22px]">你目前選的是「族人」，請使用賒帳流程結帳。</p>
+        <div className="flex gap-5">
           <button
             onClick={() => navigate("/auth")}
-            className="px-10 py-5 rounded-2xl bg-slate-800 text-white text-xl font-bold shadow-lg hover:bg-slate-700 transition-transform hover:scale-105 active:scale-95"
+            className="btn-press h-[72px] px-8 bg-forest text-paper text-2xl"
           >
-            📘 前往賒帳驗證
+            前往賒帳驗證
           </button>
           <button
             onClick={() => navigate("/cart")}
-            className="px-10 py-5 rounded-2xl bg-slate-100 text-slate-700 text-xl font-bold shadow-md hover:bg-slate-200"
+            className="btn-ghost h-[72px] px-8 text-xl"
           >
-            ⬅ 返回購物車
+            返回購物車
           </button>
         </div>
       </div>
     );
   }
 
+  const paidPercent = totalAmount > 0 ? Math.min(100, Math.round((insertedAmount / totalAmount) * 100)) : 0;
+  const reached = insertedAmount >= totalAmount;
+
   return (
-    <div className="flex flex-col items-center justify-center h-full space-y-8 text-center max-w-xl mx-auto">
-      <h2 className="text-3xl font-bold text-slate-800">請投入硬幣或現金</h2>
-
-      <div className="flex flex-col items-center space-y-2 bg-slate-50 p-8 rounded-3xl border border-slate-200 shadow-sm w-full">
-        <p className="text-lg text-slate-600">本次消費金額</p>
-        <div className="text-4xl text-slate-800 font-bold mb-4">
-          ${totalAmount}
+    <div className="flex-1 min-h-0 grid grid-cols-[minmax(0,1fr)_380px] gap-10 px-6 py-4">
+      <section className="panel rounded-[28px] shadow-press-lg px-12 py-10 flex flex-col justify-center gap-7">
+        <div className="text-[22px] font-bold">已投入金額</div>
+        <div className="flex items-baseline gap-[18px]">
+          <span className="font-display text-[150px] leading-[.9] text-forest transition-all duration-300">
+            {insertedAmount}
+          </span>
+          <span className="font-display text-[44px] opacity-55">/ {totalAmount} 元</span>
         </div>
-
-        <div className="w-full h-px bg-slate-200 my-2"></div>
-
-        <p className="text-lg text-slate-600">投幣機已投入金額</p>
-        <div className="text-5xl text-emerald-600 font-black mb-2 transition-all duration-300">
-          ${insertedAmount}
+        <div
+          className="h-9 border-[3px] border-ink rounded-full bg-cream overflow-hidden"
+          role="progressbar"
+          aria-valuemin={0}
+          aria-valuemax={totalAmount}
+          aria-valuenow={insertedAmount}
+          aria-label="已投入金額"
+        >
+          <div
+            className={`h-full bg-moss transition-all duration-300 ${paidPercent > 0 && paidPercent < 100 ? "border-r-[3px] border-ink" : ""}`}
+            style={{ width: `${paidPercent}%` }}
+          />
         </div>
-
-        {remaining > 0 ? (
-          <p className="text-rose-500 font-semibold text-lg mt-2">
-            還差 ${remaining} 元
-          </p>
+        {reached ? (
+          <div className="text-[28px] font-bold text-forest">
+            投入金額已達標，即將完成結帳…
+          </div>
         ) : (
-          <p className="text-emerald-600 font-bold mt-4 text-xl animate-bounce">
-            ✅ 投入金額已達標，即將完成結帳...
-          </p>
+          <div className="flex justify-between items-baseline text-[22px]">
+            <span>還差</span>
+            <span className="font-display text-[52px] text-rust">NT${remaining}</span>
+          </div>
         )}
-      </div>
+      </section>
 
-      <div className="flex flex-col sm:flex-row gap-4 w-full justify-center">
+      <aside className="flex flex-col gap-5">
+        <h1 className="font-display text-[44px] leading-tight">
+          請投入
+          <br />
+          硬幣或紙鈔
+        </h1>
+        <p className="text-xl leading-[1.7]">
+          請把錢投入投幣機，金額投滿後會自動完成結帳。
+        </p>
+        <div className="bg-peach border-[3px] border-ink rounded-[20px] px-5 py-4 flex justify-between items-baseline">
+          <span className="text-lg font-bold">本次消費</span>
+          <span className="font-display text-[34px]">NT${totalAmount}</span>
+        </div>
         <button
           onClick={handleComplete}
-          className={`px-8 py-4 rounded-2xl text-white text-lg font-bold shadow-md transition-transform hover:scale-105 active:scale-95 ${
-            insertedAmount >= totalAmount
-              ? "bg-emerald-600 hover:bg-emerald-500"
-              : "bg-slate-400 hover:bg-slate-500"
-          }`}
+          className="btn-press mt-auto h-[72px] px-4 bg-forest text-paper text-[22px] text-center"
         >
-          {insertedAmount >= totalAmount ? "立即完成結帳" : "紙鈔/零錢已手動投入 (直接完成)"}
+          {reached ? "立即完成結帳" : "紙鈔已手動投入，直接完成"}
         </button>
-
         <button
           onClick={() => navigate("/evidence")}
-          className="px-6 py-4 rounded-2xl bg-slate-100 text-slate-700 text-lg font-semibold hover:bg-slate-200"
+          className="btn-ghost h-14 text-lg"
         >
-          ⬅ 返回拍照存證
+          返回拍照存證
         </button>
-      </div>
+      </aside>
     </div>
   );
 }
