@@ -2,6 +2,71 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer components {
+  /* 實心陰影按鈕：按下時往下沉 4px。底色與字色由使用處決定 */
+  .btn-press {
+    @apply inline-flex items-center justify-center font-display border-[3px] border-ink rounded-[18px] shadow-press transition-[transform,box-shadow] duration-75 cursor-pointer select-none;
+  }
+  .btn-press:active:not(:disabled) {
+    @apply translate-y-1 shadow-[0_1px_0_#4A2C1A];
+  }
+  .btn-press:disabled {
+    @apply opacity-50 cursor-not-allowed;
+  }
+
+  /* 次要按鈕：沙色底、無框 */
+  .btn-ghost {
+    @apply inline-flex items-center justify-center font-bold bg-sand text-ink rounded-[18px] cursor-pointer select-none transition-colors hover:bg-[#D9CA98];
+  }
+  .btn-ghost:disabled {
+    @apply opacity-50 cursor-not-allowed hover:bg-sand;
+  }
+
+  .btn-press:focus-visible,
+  .btn-ghost:focus-visible,
+  .focus-ring:focus-visible {
+    @apply outline outline-4 outline-offset-[3px] outline-peach;
+  }
+
+  /* 紙白卡片 + 深咖啡粗框 */
+  .panel {
+    @apply bg-paper border-[3px] border-ink rounded-[22px];
+  }
+
+  /* 表單欄位 */
+  .field {
+    @apply h-14 w-full border-[3px] border-sand rounded-2xl bg-cream px-4 text-lg text-ink placeholder:text-ink/40 focus:outline-none focus:border-clay;
+  }
+
+  /* 後台：頁籤、篩選膠囊、狀態標籤 */
+  .tab {
+    @apply h-[46px] px-5 rounded-[14px] border-[3px] border-sand bg-paper font-bold text-base text-ink inline-flex items-center;
+  }
+  .tab-on {
+    @apply bg-clay text-paper border-ink shadow-press-sm;
+  }
+  .pill {
+    @apply h-10 px-4 rounded-full border-2 border-sand bg-paper font-bold text-[15px] text-ink cursor-pointer inline-flex items-center gap-1.5;
+  }
+  .pill-on {
+    @apply bg-forest border-forest text-paper;
+  }
+  .chip {
+    @apply inline-block px-3 py-1 rounded-full text-sm font-bold;
+  }
+
+  /* 後台表格。用 :where() 壓低權重，讓 th/td 上的 text-right 等 utility 能覆蓋 */
+  .data-table {
+    @apply w-full border-collapse;
+  }
+  .data-table :where(th) {
+    @apply text-sm font-bold text-left px-[18px] py-3 bg-wheat whitespace-nowrap;
+  }
+  .data-table :where(td) {
+    @apply px-[18px] py-3 border-t-2 border-wheat text-base align-middle;
+  }
+}
+
 @keyframes marquee-scroll {
   0% {
     transform: translateX(0);
