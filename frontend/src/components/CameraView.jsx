@@ -5,6 +5,7 @@ function CameraView({
   status = "LIVE",
   mode = "external", // ⭐ external | internal
   fill = false, // ⭐ true 時填滿父層（不設 max-w-xl）
+  bare = false, // true 時不畫外框與 label/status 標籤，由父層自己包框
   children,
   videoRef: externalVideoRef,
   onReadyChange,
@@ -108,7 +109,9 @@ function CameraView({
   return (
     <div
       className={
-        fill
+        bare
+          ? "relative w-full h-full overflow-hidden"
+          : fill
           ? "relative w-full h-full bg-black rounded-3xl shadow-2xl overflow-hidden border-4 border-slate-800"
           : "relative w-full max-w-xl aspect-video bg-black rounded-3xl shadow-2xl overflow-hidden border-4 border-slate-800"
       }
@@ -121,34 +124,38 @@ function CameraView({
         className="w-full h-full object-cover"
       />
 
-      <div className="absolute top-4 left-4 text-xs font-mono text-green-300 bg-black/60 px-3 py-1 rounded-full">
-        {label}
-      </div>
+      {!bare && (
+        <>
+          <div className="absolute top-4 left-4 text-xs font-mono text-green-300 bg-black/60 px-3 py-1 rounded-full">
+            {label}
+          </div>
 
-      <div className="absolute top-4 right-4 flex items-center gap-2 bg-black/60 px-4 py-2 rounded-full">
-        <div
-          className={`w-3 h-3 rounded-full ${
-            status === "REC" || status === "SCANNING"
-              ? "bg-red-500 animate-pulse"
-              : "bg-slate-300"
-          }`}
-        />
-        <span className="text-xs text-white tracking-widest font-semibold">
-          {status}
-        </span>
-      </div>
+          <div className="absolute top-4 right-4 flex items-center gap-2 bg-black/60 px-4 py-2 rounded-full">
+            <div
+              className={`w-3 h-3 rounded-full ${
+                status === "REC" || status === "SCANNING"
+                  ? "bg-red-500 animate-pulse"
+                  : "bg-slate-300"
+              }`}
+            />
+            <span className="text-xs text-white tracking-widest font-semibold">
+              {status}
+            </span>
+          </div>
+        </>
+      )}
 
       {!ready && !error && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 text-slate-100">
-          <div className="text-5xl mb-2">📷</div>
+        <div className={`absolute inset-0 flex flex-col items-center justify-center ${bare ? "bg-cocoa text-cream" : "bg-black/60 text-slate-100"}`}>
+          {!bare && <div className="text-5xl mb-2">📷</div>}
           <div className="text-lg mb-1">正在啟動相機...</div>
         </div>
       )}
 
       {error && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70 text-red-200 text-center px-4">
-          <div className="text-4xl mb-2">⚠️</div>
-          <div className="text-sm whitespace-pre-line">{error}</div>
+        <div className={`absolute inset-0 flex flex-col items-center justify-center text-center px-4 ${bare ? "bg-cocoa text-peach" : "bg-black/70 text-red-200"}`}>
+          {!bare && <div className="text-4xl mb-2">⚠️</div>}
+          <div className={`${bare ? "text-lg" : "text-sm"} whitespace-pre-line`}>{error}</div>
         </div>
       )}
 

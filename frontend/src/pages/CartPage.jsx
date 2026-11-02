@@ -67,32 +67,33 @@ export default function CartPage() {
     [cart.length, totalAmount]
   );
 
-  return (
-    <div className="flex flex-col w-full flex-1 min-h-[60vh]">
-      <div className="mb-4">
-        <h2 className="text-3xl font-bold text-slate-800">購物車清單</h2>
-      </div>
+  const itemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+  const qtyClass =
+    "focus-ring w-[52px] h-[52px] rounded-full border-[3px] border-ink text-[26px] font-bold flex items-center justify-center active:scale-95 transition";
 
-      <div className="flex-1 bg-white rounded-3xl shadow-inner border border-slate-100 p-6 overflow-auto min-h-0">
+  return (
+    <div className="flex-1 min-h-0 grid grid-cols-[minmax(0,1fr)_340px] grid-rows-[auto_minmax(0,1fr)] gap-x-7 gap-y-[18px]">
+      <h1 className="col-span-full font-display text-[38px]">購物車清單</h1>
+
+      <section className="panel rounded-3xl p-[18px] overflow-auto min-h-0">
         {cart.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center text-slate-500 space-y-3">
-            <div className="text-5xl">🛒</div>
-            <div className="text-lg">目前購物車是空的，請先辨識商品。</div>
+          <div className="h-full flex flex-col items-center justify-center gap-4">
+            <div className="text-xl">目前購物車是空的，請先辨識商品。</div>
             <button
               onClick={() => navigate("/scan")}
-              className="mt-2 px-6 py-3 rounded-2xl bg-green-600 text-white font-semibold hover:bg-green-500 shadow-md"
+              className="btn-press h-16 px-8 bg-forest text-paper text-2xl"
             >
               開始辨識商品
             </button>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="flex flex-col gap-3">
             {cart.map((item) => (
               <div
                 key={item.id}
-                className="grid grid-cols-[auto_1fr_auto_100px] items-center gap-4 bg-slate-50 rounded-2xl px-4 py-4 border border-slate-100"
+                className="flex items-center gap-[18px] bg-cream rounded-[18px] py-3 pl-3.5 pr-[22px]"
               >
-                <div className="w-16 h-16 shrink-0 rounded-xl bg-white border border-slate-200 flex items-center justify-center overflow-hidden">
+                <div className="w-[68px] h-[68px] shrink-0 rounded-[14px] border-[3px] border-sand bg-paper flex items-center justify-center overflow-hidden">
                   {item.image_url ? (
                     <img
                       src={
@@ -110,86 +111,84 @@ export default function CartPage() {
                     <span className="text-3xl">{item.image}</span>
                   )}
                 </div>
-                <div className="min-w-0">
-                  <div className="text-lg font-semibold text-slate-800 truncate">
-                    {item.name}
-                  </div>
-                  <div className="text-xs text-slate-500">
-                    單價：NT${item.price}
-                  </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-bold text-[21px] truncate">{item.name}</div>
+                  <div className="text-[15px] mt-0.5">單價 NT${item.price}</div>
                 </div>
 
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => decreaseQty(item.id)}
-                    className="w-12 h-12 rounded-2xl bg-white border border-slate-200 text-slate-700 text-2xl font-bold shadow-sm hover:bg-slate-100 active:scale-95 transition"
-                    aria-label="減少數量"
-                  >
-                    −
-                  </button>
+                <button
+                  type="button"
+                  onClick={() => decreaseQty(item.id)}
+                  className={`${qtyClass} bg-paper`}
+                  aria-label="減少數量"
+                >
+                  −
+                </button>
+                <span className="w-9 text-center font-display text-[30px]">
+                  {item.quantity}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => increaseQty(item.id)}
+                  className={`${qtyClass} bg-forest text-paper`}
+                  aria-label="增加數量"
+                >
+                  +
+                </button>
 
-                  <div className="w-16 text-center">
-                    <div className="text-xs text-slate-500">數量</div>
-                    <div className="text-2xl font-bold text-slate-800">
-                      {item.quantity}
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => increaseQty(item.id)}
-                    className="w-12 h-12 rounded-2xl bg-white border border-slate-200 text-slate-700 text-2xl font-bold shadow-sm hover:bg-slate-100 active:scale-95 transition"
-                    aria-label="增加數量"
-                  >
-                    +
-                  </button>
-                </div>
-
-                <div className="text-right">
-                  <div className="text-lg font-bold text-green-700">
+                <div className="w-[120px] text-right">
+                  <div className="font-display text-[26px] text-rust">
                     NT${item.price * item.quantity}
                   </div>
-                  <div className="text-xs text-slate-400">小計</div>
+                  <div className="text-[13px]">小計</div>
                 </div>
               </div>
             ))}
           </div>
         )}
-      </div>
+      </section>
 
-      <div className="mt-4 flex items-end justify-between">
-        {cart.length > 0 ? (
+      <aside className="flex flex-col gap-5">
+        <div className="panel rounded-3xl shadow-press p-6 flex flex-col gap-[18px]">
+          <div className="flex justify-between text-lg pb-4 border-b-2 border-dashed border-sand">
+            <span>商品數量</span>
+            <span className="font-bold">{itemCount} 件</span>
+          </div>
+          <div className="flex justify-between items-baseline">
+            <span className="text-lg font-bold">總金額</span>
+            <span className="font-display text-[46px] text-forest">NT${totalAmount}</span>
+          </div>
+          <button
+            data-testid="btn-checkout"
+            disabled={cart.length === 0}
+            onClick={handleCheckoutClick}
+            className="btn-press h-[84px] bg-clay text-paper text-[34px]"
+          >
+            結帳
+          </button>
           <button
             onClick={() => navigate("/scan")}
-            className="px-5 py-3 rounded-2xl bg-slate-200 text-slate-700 text-base font-semibold hover:bg-slate-300 transition"
+            className="btn-ghost h-14 text-lg"
           >
             繼續辨識商品
           </button>
-        ) : (
-          <div />
-        )}
-        <div className="text-right flex flex-col items-end gap-4">
-          <div className="text-[27.2px] font-bold text-slate-800">
-            <span className="text-slate-800">總金額：</span>
-            <span className="text-green-700">NT${totalAmount}</span>
-          </div>
-
-          <div className="flex gap-4">
-            <button
-              data-testid="btn-checkout"
-              disabled={cart.length === 0}
-              onClick={handleCheckoutClick}
-              className={`px-10 py-5 rounded-2xl text-xl font-bold shadow-lg transition-transform hover:scale-105 active:scale-95 whitespace-nowrap ${cart.length === 0
-                  ? "bg-slate-300 text-slate-500 cursor-not-allowed"
-                  : "bg-green-600 text-white hover:bg-green-500"
-                }`}
-            >
-              🛒 結帳
-            </button>
-          </div>
         </div>
-      </div>
+
+        <div className="px-2 text-base leading-[1.7]">
+          {isTribalMember ? (
+            <>
+              <div className="font-bold mb-1.5">結帳後還有一步</div>
+              <div>拍照存證：拍下您的臉，店長確認後記入賒帳</div>
+            </>
+          ) : (
+            <>
+              <div className="font-bold mb-1.5">結帳後還有兩步</div>
+              <div>1. 拍照存證：拍下您的臉</div>
+              <div>2. 投幣付款：投入硬幣或紙鈔</div>
+            </>
+          )}
+        </div>
+      </aside>
 
       <RecipePopup
         mode={popup.mode}

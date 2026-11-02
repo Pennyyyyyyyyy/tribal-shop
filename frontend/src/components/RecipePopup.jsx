@@ -25,18 +25,18 @@ export default function RecipePopup({
   return (
     <>
       <div
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4"
+        className="fixed inset-0 z-50 flex items-center justify-center bg-cocoa/60 backdrop-blur-sm px-4"
         onClick={onClose}
       >
         <div
-          className="relative w-full max-w-xl rounded-3xl bg-white shadow-2xl overflow-hidden"
+          className="relative w-full max-w-xl rounded-[28px] bg-paper border-[3px] border-ink shadow-press-lg overflow-hidden text-ink"
           onClick={(e) => e.stopPropagation()}
         >
           <button
             type="button"
             aria-label="關閉"
             onClick={onClose}
-            className="absolute top-4 right-4 w-9 h-9 flex items-center justify-center rounded-full text-white/90 hover:bg-white/20 transition z-10"
+            className="focus-ring absolute top-4 right-4 w-10 h-10 flex items-center justify-center rounded-full text-paper hover:bg-paper/20 transition z-10"
           >
             <span className="text-2xl leading-none">×</span>
           </button>
@@ -80,7 +80,7 @@ function RecipeHero({ recipe, onViewRecipe }) {
     <button
       type="button"
       onClick={onViewRecipe}
-      className="relative w-full h-56 overflow-hidden block group"
+      className="relative w-full h-56 overflow-hidden block group border-b-[3px] border-ink"
       aria-label={`查看 ${recipe.title} 食譜`}
     >
       <img
@@ -88,15 +88,15 @@ function RecipeHero({ recipe, onViewRecipe }) {
         alt={recipe.title}
         className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition"
       />
-      <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/30 to-transparent" />
-      <div className="absolute top-4 left-6 text-xs font-semibold tracking-widest text-white/80 uppercase">
+      <div className="absolute inset-0 bg-gradient-to-t from-cocoa/80 via-cocoa/30 to-transparent" />
+      <div className="absolute top-4 left-6 text-xs font-semibold tracking-widest text-paper/80 uppercase">
         Tayal Recipe
       </div>
-      <div className="absolute top-4 right-14 rounded-full bg-white/90 text-slate-800 text-xs font-semibold px-3 py-1 shadow">
+      <div className="absolute top-4 right-16 rounded-full bg-peach text-ink text-xs font-bold px-3 py-1">
         點選查看食譜
       </div>
-      <div className="absolute bottom-6 left-6 right-6 text-left text-white">
-        <div className="text-2xl font-black drop-shadow">{recipe.title}</div>
+      <div className="absolute bottom-6 left-6 right-6 text-left text-paper">
+        <div className="font-display text-[28px] drop-shadow">{recipe.title}</div>
       </div>
     </button>
   );
@@ -107,10 +107,10 @@ function PromoteBody({ recipe, onAddMakau, onSkip, onViewRecipe }) {
     <>
       <RecipeHero recipe={recipe} onViewRecipe={onViewRecipe} />
       <div className="p-7">
-        <h2 className="text-2xl font-black text-slate-900 leading-snug">
+        <h2 className="font-display text-[26px] leading-snug">
           加入馬告讓你的{recipe.category}多一種風味！
         </h2>
-        <p className="mt-3 text-slate-600 leading-relaxed">
+        <p className="mt-3 text-lg leading-relaxed opacity-85">
           {recipe.description}
         </p>
 
@@ -118,14 +118,14 @@ function PromoteBody({ recipe, onAddMakau, onSkip, onViewRecipe }) {
           <button
             type="button"
             onClick={onSkip}
-            className="flex-1 px-5 py-3 rounded-2xl bg-slate-100 text-slate-700 font-semibold hover:bg-slate-200 transition"
+            className="btn-ghost flex-1 h-14 text-lg"
           >
             忍痛放棄
           </button>
           <button
             type="button"
             onClick={onAddMakau}
-            className="flex-[1.3] px-5 py-3 rounded-2xl bg-emerald-600 text-white font-bold hover:bg-emerald-500 shadow-md active:scale-95 transition"
+            className="btn-press flex-[1.3] h-14 bg-clay text-paper text-xl"
           >
             ＋ 加入馬告
           </button>
@@ -140,14 +140,14 @@ function CelebrateBody({ recipe, onClose, onViewRecipe }) {
     <>
       <RecipeHero recipe={recipe} onViewRecipe={onViewRecipe} />
       <div className="p-7">
-        <h2 className="text-2xl font-black text-slate-900 leading-snug">
+        <h2 className="font-display text-[26px] leading-snug">
           你知道馬告加入{recipe.category}可以添加更多風味嗎？
         </h2>
-        <p className="mt-3 text-slate-600 leading-relaxed">
+        <p className="mt-3 text-lg leading-relaxed opacity-85">
           {recipe.description}
         </p>
 
-        <div className="mt-5 rounded-2xl bg-emerald-50 border border-emerald-200 p-4 text-sm text-emerald-900">
+        <div className="mt-5 rounded-2xl bg-moss/50 border-2 border-forest/40 p-4 text-base">
           你已經備好所有材料，回家後試試看「{recipe.title}」吧！
         </div>
 
@@ -155,14 +155,14 @@ function CelebrateBody({ recipe, onClose, onViewRecipe }) {
           <button
             type="button"
             onClick={onViewRecipe}
-            className="flex-1 px-5 py-3 rounded-2xl bg-slate-100 text-slate-700 font-semibold hover:bg-slate-200 transition"
+            className="btn-ghost flex-1 h-14 text-lg"
           >
             查看完整食譜
           </button>
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 px-5 py-3 rounded-2xl bg-emerald-600 text-white font-bold hover:bg-emerald-500 shadow-md active:scale-95 transition"
+            className="btn-press flex-1 h-14 bg-forest text-paper text-xl"
           >
             繼續結帳 →
           </button>
@@ -187,14 +187,14 @@ function EducateBody({ onClose, onViewRecipe, onAddProducts }) {
   };
 
   return (
-    <div className="bg-gradient-to-br from-emerald-700 to-emerald-900 text-white px-7 pt-10 pb-7">
-      <div className="text-xs font-semibold tracking-widest text-white/70 uppercase">
+    <div className="bg-forest text-paper px-7 pt-10 pb-7">
+      <div className="text-xs font-semibold tracking-widest text-paper/70 uppercase">
         Tayal Recipe
       </div>
-      <h2 className="mt-1 text-2xl font-black leading-snug">
+      <h2 className="mt-1 font-display text-[28px] leading-snug">
         你想不想了解泰雅族特色飲食呢？
       </h2>
-      <p className="mt-2 text-white/80 text-sm">
+      <p className="mt-2 text-paper/85 text-base">
         點選下方任一食譜，看看馬告如何為日常飲食帶來山林風味。
       </p>
 
@@ -204,7 +204,7 @@ function EducateBody({ onClose, onViewRecipe, onAddProducts }) {
             key={r.key}
             type="button"
             onClick={() => onViewRecipe(r)}
-            className="group relative text-left rounded-2xl overflow-hidden ring-1 ring-white/20 hover:ring-white/70 hover:scale-[1.03] transition shadow-lg bg-black/20"
+            className="focus-ring group relative text-left rounded-2xl overflow-hidden border-[3px] border-ink bg-paper text-ink hover:scale-[1.03] transition"
           >
             <div className="aspect-square overflow-hidden">
               <img
@@ -213,10 +213,10 @@ function EducateBody({ onClose, onViewRecipe, onAddProducts }) {
                 className="w-full h-full object-cover group-hover:scale-105 transition"
               />
             </div>
-            <span className="absolute top-2 right-2 rounded-full bg-white/90 text-slate-800 text-[11px] font-semibold px-2 py-0.5 shadow">
+            <span className="absolute top-2 right-2 rounded-full bg-peach text-ink text-[11px] font-bold px-2 py-0.5">
               點選查看食譜
             </span>
-            <div className="bg-black/50 backdrop-blur-sm px-3 py-2 text-center">
+            <div className="border-t-[3px] border-ink px-3 py-2 text-center">
               <div className="text-sm font-bold">{r.title}</div>
             </div>
           </button>
@@ -228,14 +228,14 @@ function EducateBody({ onClose, onViewRecipe, onAddProducts }) {
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 px-5 py-3 rounded-2xl bg-white/90 text-slate-700 font-semibold hover:bg-white shadow-md active:scale-95 transition"
+            className="btn-ghost flex-1 h-14 text-lg"
           >
             忍痛放棄
           </button>
           <button
             type="button"
             onClick={() => setMenu("main")}
-            className="flex-[1.4] px-5 py-3 rounded-2xl bg-amber-400 text-amber-950 font-bold hover:bg-amber-300 shadow-md active:scale-95 transition"
+            className="btn-press flex-[1.4] h-14 bg-clay text-paper text-xl"
           >
             ＋ 一鍵新增產品到購物車
           </button>
@@ -243,15 +243,15 @@ function EducateBody({ onClose, onViewRecipe, onAddProducts }) {
       )}
 
       {menu === "main" && (
-        <div className="mt-6 rounded-2xl bg-white/10 border border-white/20 p-4">
+        <div className="mt-6 rounded-2xl bg-paper/10 border-2 border-paper/30 p-4">
           <div className="flex items-center justify-between mb-3">
-            <div className="text-sm text-white/90 font-semibold">
+            <div className="text-base text-paper font-bold">
               選擇要加入的組合
             </div>
             <button
               type="button"
               onClick={() => setMenu(null)}
-              className="text-xs text-white/70 hover:text-white underline"
+              className="text-sm text-paper/80 hover:text-paper underline"
             >
               取消
             </button>
@@ -274,15 +274,15 @@ function EducateBody({ onClose, onViewRecipe, onAddProducts }) {
       )}
 
       {menu === "noodle" && (
-        <div className="mt-6 rounded-2xl bg-white/10 border border-white/20 p-4">
+        <div className="mt-6 rounded-2xl bg-paper/10 border-2 border-paper/30 p-4">
           <div className="flex items-center justify-between mb-3">
-            <div className="text-sm text-white/90 font-semibold">
+            <div className="text-base text-paper font-bold">
               選擇泡麵（將一併加入馬告）
             </div>
             <button
               type="button"
               onClick={() => setMenu("main")}
-              className="text-xs text-white/70 hover:text-white underline"
+              className="text-sm text-paper/80 hover:text-paper underline"
             >
               ← 返回
             </button>
@@ -307,7 +307,7 @@ function MenuItem({ label, onClick }) {
     <button
       type="button"
       onClick={onClick}
-      className="text-left px-4 py-3 rounded-xl bg-white text-slate-800 font-semibold hover:bg-emerald-50 shadow-sm active:scale-95 transition"
+      className="focus-ring text-left px-4 py-3 rounded-xl bg-paper text-ink font-bold hover:bg-wheat active:scale-95 transition"
     >
       {label}
     </button>
@@ -317,7 +317,7 @@ function MenuItem({ label, onClick }) {
 function RecipeLightbox({ recipe, onClose }) {
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/85 px-4"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-cocoa/90 px-4"
       onClick={onClose}
     >
       <button
@@ -336,7 +336,7 @@ function RecipeLightbox({ recipe, onClose }) {
         <img
           src={recipe.recipePhoto}
           alt={`${recipe.title} 食譜`}
-          className="max-h-[85vh] w-auto object-contain rounded-2xl shadow-2xl bg-white"
+          className="max-h-[85vh] w-auto object-contain rounded-2xl border-[3px] border-ink bg-paper"
         />
         <div className="text-white/90 text-sm">{recipe.title}</div>
       </div>
