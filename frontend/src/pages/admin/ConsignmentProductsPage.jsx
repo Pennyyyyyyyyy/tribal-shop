@@ -3,6 +3,7 @@
 // （寄賣商品僅能從 LINE 上架，店長從 admin 端不主動建）。
 import React, { useEffect, useMemo, useState } from "react";
 import * as api from "../../service/adminApi";
+import { useAdminProducts } from "../../hooks/useAdminProducts";
 import {
     CATEGORIES,
     Th,
@@ -17,9 +18,7 @@ import {
 } from "../../components/admin/productsShared";
 
 export default function ConsignmentProductsPage() {
-    const [items, setItems] = useState([]);
-    const [error, setError] = useState(null);
-    const [loading, setLoading] = useState(true);
+    const { items, error, setError, loading, load, toggleActive } = useAdminProducts({ consignment: true });
     const [editing, setEditing] = useState(null);
     const [filter, setFilter] = useState("");
     const [categoryFilter, setCategoryFilter] = useState("全部");
@@ -36,33 +35,6 @@ export default function ConsignmentProductsPage() {
         () => new Map(consignors.map(c => [c.line_id, c.nickname])),
         [consignors]
     );
-
-    async function load() {
-        setLoading(true);
-        try {
-            const all = await api.products.list();
-            setItems(all.filter(p => p.consignor_line_id));
-            setError(null);
-        } catch (err) {
-            setError(err.message);
-        } finally {
-            setLoading(false);
-        }
-    }
-
-    useEffect(() => { load(); }, []);
-
-    async function toggleActive(product) {
-        const prev = items;
-        const newVal = !product.is_active;
-        setItems(items.map(p => p.id === product.id ? { ...p, is_active: newVal } : p));
-        try {
-            await api.products.update(product.id, { is_active: newVal });
-        } catch (err) {
-            setItems(prev);
-            setError(err.message);
-        }
-    }
 
     const filtered = items.filter(p => {
         if (statusFilter !== null && (p.approval_status || "approved") !== statusFilter) return false;
@@ -116,127 +88,128 @@ export default function ConsignmentProductsPage() {
     }, [items]);
 
     return (
-        <div className="space-y-5">
-            <div className="flex items-center justify-between flex-wrap gap-3">
-                <div>
-                    <h2 className="text-xl font-semibold text-slate-800">寄賣商品</h2>
-                    <p className="text-xs text-slate-500 mt-0.5">來自寄賣族人透過 LINE 上架的商品</p>
-                </div>
-                <div className="flex items-center gap-2 flex-wrap">
-                    <div className="flex items-center gap-1 border border-slate-200 rounded-xl bg-white px-1 py-1">
-                        <StatusTab label="全部" count={statusCounts.all} active={statusFilter === null} onClick={() => setStatusFilter(null)} />
-                        <StatusTab label="已上架" count={statusCounts.approved} active={statusFilter === "approved"} onClick={() => setStatusFilter("approved")} />
-                        <StatusTab label="待審核" count={statusCounts.pending} active={statusFilter === "pending"} onClick={() => setStatusFilter("pending")} pulseIfNonZero />
-                        <StatusTab label="已駁回" count={statusCounts.rejected} active={statusFilter === "rejected"} onClick={() => setStatusFilter("rejected")} />
-                    </div>
-                    <div className="flex items-center gap-1 border border-slate-200 rounded-xl bg-white px-1 py-1">
-                        {["全部", ...CATEGORIES].map(c => (
-                            <button
-                                key={c}
-                                onClick={() => setCategoryFilter(c)}
-                                className={
-                                    "px-3 py-1 rounded-lg text-xs transition-colors " +
-                                    (categoryFilter === c
-                                        ? "bg-green-600 text-white font-semibold"
-                                        : "text-slate-600 hover:bg-slate-100")
-                                }
-                            >
-                                {c}
-                            </button>
-                        ))}
-                    </div>
-                    <input
-                        value={filter}
-                        onChange={e => setFilter(e.target.value)}
-                        placeholder="搜尋名稱"
-                        className="px-3 py-2 rounded-xl border border-slate-200 focus:border-green-500 focus:outline-none bg-white text-sm w-40"
-                    />
-                </div>
+        <div className="flex flex-col gap-5">
+            <div>
+                <h1 className="font-display text-[38px]">寄賣商品</h1>
+                <p className="text-[15px] mt-1">族人透過 LINE 上架的商品</p>
+            </div>
+
+            <div className="flex gap-2.5 items-center flex-wrap">
+                <label htmlFor="consign-search" className="sr-only">搜尋名稱</label>
+                <input
+                    id="consign-search"
+                    value={filter}
+                    onChange={e => setFilter(e.target.value)}
+                    placeholder="搜尋名稱"
+                    className="field h-11 w-[260px] max-w-full text-base bg-paper rounded-[14px]"
+                />
+                <StatusTab label="全部" count={statusCounts.all} active={statusFilter === null} onClick={() => setStatusFilter(null)} />
+                <StatusTab label="待審核" count={statusCounts.pending} active={statusFilter === "pending"} onClick={() => setStatusFilter("pending")} pulseIfNonZero />
+                <StatusTab label="已上架" count={statusCounts.approved} active={statusFilter === "approved"} onClick={() => setStatusFilter("approved")} />
+                <StatusTab label="已駁回" count={statusCounts.rejected} active={statusFilter === "rejected"} onClick={() => setStatusFilter("rejected")} />
+            </div>
+            <div className="flex gap-2 items-center flex-wrap">
+                <span className="text-sm font-bold mr-1">分類</span>
+                {["全部", ...CATEGORIES].map(c => (
+                    <button
+                        key={c}
+                        onClick={() => setCategoryFilter(c)}
+                        aria-pressed={categoryFilter === c}
+                        className={`focus-ring pill h-9 text-sm ${categoryFilter === c ? "pill-on" : ""}`}
+                    >
+                        {c}
+                    </button>
+                ))}
             </div>
 
             {error && <ErrorBar message={error} onDismiss={() => setError(null)} />}
 
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            <section className="panel overflow-hidden">
                 {loading ? (
-                    <div className="p-10 text-center text-sm text-slate-500">載入中…</div>
+                    <div className="p-10 text-center text-base opacity-70">載入中…</div>
                 ) : sorted.length === 0 ? (
-                    <div className="p-10 text-center text-sm text-slate-500">
+                    <div className="p-10 text-center text-base opacity-70">
                         {filter || categoryFilter !== "全部" || statusFilter !== null
                             ? "找不到相符的商品"
                             : "還沒有寄賣商品 —— 邀請族人加 LINE bot 好友上架"}
                     </div>
                 ) : (
-                    <table className="w-full text-sm">
-                        <thead className="bg-slate-50 border-b border-slate-200">
-                            <tr className="text-left text-xs text-slate-500 uppercase tracking-wider">
-                                <SortableTh sortKey="name" sort={sort} onSort={toggleSort}>名稱</SortableTh>
-                                <Th>寄賣者</Th>
-                                <SortableTh sortKey="category" sort={sort} onSort={toggleSort}>分類</SortableTh>
-                                <SortableTh sortKey="price" sort={sort} onSort={toggleSort} align="right">單價</SortableTh>
-                                <SortableTh sortKey="stock" sort={sort} onSort={toggleSort} align="right">庫存</SortableTh>
-                                <Th>訓練狀態</Th>
-                                <Th>上架</Th>
-                                <Th>狀態</Th>
-                                <Th></Th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {sorted.map(p => (
-                                <tr key={p.id} className={"hover:bg-slate-50 transition-colors " + (p.is_active === false ? "opacity-50" : "")}>
-                                    <Td className="font-medium text-slate-800">{p.name}</Td>
-                                    <Td>
-                                        <span className="text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
-                                            ◎ {consignorMap.get(p.consignor_line_id) || p.consignor_line_id}
-                                        </span>
-                                    </Td>
-                                    <Td className="text-slate-600">{p.category || "—"}</Td>
-                                    <Td className="text-right font-semibold tabular-nums text-slate-800">${p.price}</Td>
-                                    <Td className="text-right font-semibold tabular-nums">
-                                        <span className={p.stock <= 2 ? "text-red-600" : "text-slate-800"}>{p.stock}</span>
-                                    </Td>
-                                    <Td><StatusPill trained={p.trained} /></Td>
-                                    <Td>
-                                        <ActiveSwitch
-                                            active={p.is_active !== false}
-                                            onToggle={() => toggleActive(p)}
-                                        />
-                                    </Td>
-                                    <Td>
-                                        <ApprovalPill status={p.approval_status || "approved"} reason={p.rejected_reason} />
-                                    </Td>
-                                    <Td className="text-right">
-                                        {(p.approval_status === "pending") ? (
-                                            <div className="inline-flex items-center gap-2">
-                                                <button
-                                                    onClick={() => approve(p)}
-                                                    disabled={busyId === p.id}
-                                                    className="px-3 py-1 rounded-lg bg-green-600 hover:bg-green-500 text-white text-xs font-semibold shadow-sm disabled:bg-slate-300"
-                                                >
-                                                    同意
-                                                </button>
-                                                <button
-                                                    onClick={() => setRejecting(p)}
-                                                    disabled={busyId === p.id}
-                                                    className="text-xs text-red-600 hover:text-red-800 font-medium disabled:text-slate-400"
-                                                >
-                                                    駁回
-                                                </button>
-                                            </div>
-                                        ) : (
-                                            <button
-                                                onClick={() => setEditing(p)}
-                                                className="text-xs text-green-700 hover:text-green-900 font-medium"
-                                            >
-                                                編輯
-                                            </button>
-                                        )}
-                                    </Td>
+                    <div className="overflow-x-auto">
+                        <table className="data-table min-w-[960px]">
+                            <thead>
+                                <tr>
+                                    <SortableTh sortKey="name" sort={sort} onSort={toggleSort}>名稱</SortableTh>
+                                    <Th>寄賣者</Th>
+                                    <SortableTh sortKey="category" sort={sort} onSort={toggleSort}>分類</SortableTh>
+                                    <SortableTh sortKey="price" sort={sort} onSort={toggleSort} align="right">單價</SortableTh>
+                                    <SortableTh sortKey="stock" sort={sort} onSort={toggleSort} align="right">庫存</SortableTh>
+                                    <Th>狀態</Th>
+                                    <Th>訓練狀態</Th>
+                                    <Th>上架</Th>
+                                    <Th></Th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                {sorted.map(p => (
+                                    <tr key={p.id} className={"hover:bg-cream transition-colors " + (p.is_active === false ? "opacity-50" : "")}>
+                                        <Td>
+                                            <div className="flex items-center gap-3">
+                                                {p.image_url ? (
+                                                    <img src={p.image_url} alt="" className="w-11 h-11 object-cover rounded-[10px] border-2 border-sand bg-paper" />
+                                                ) : (
+                                                    <div className="w-11 h-11 rounded-[10px] bg-sand flex items-center justify-center text-[11px]" aria-hidden="true">照片</div>
+                                                )}
+                                                <span className="font-bold">{p.name}</span>
+                                            </div>
+                                        </Td>
+                                        <Td>{consignorMap.get(p.consignor_line_id) || p.consignor_line_id}</Td>
+                                        <Td>{p.category || "—"}</Td>
+                                        <Td className="text-right tabular-nums">NT${p.price}</Td>
+                                        <Td className={`text-right tabular-nums ${p.stock <= 5 ? "text-rust font-bold" : ""}`}>{p.stock}</Td>
+                                        <Td>
+                                            <ApprovalPill status={p.approval_status || "approved"} reason={p.rejected_reason} />
+                                        </Td>
+                                        <Td><StatusPill trained={p.trained} /></Td>
+                                        <Td>
+                                            <ActiveSwitch
+                                                active={p.is_active !== false}
+                                                onToggle={() => toggleActive(p)}
+                                            />
+                                        </Td>
+                                        <Td className="text-right whitespace-nowrap">
+                                            {(p.approval_status === "pending") ? (
+                                                <div className="inline-flex items-center gap-2">
+                                                    <button
+                                                        onClick={() => approve(p)}
+                                                        disabled={busyId === p.id}
+                                                        className="btn-press h-[38px] px-3.5 rounded-xl shadow-[0_3px_0_#4A2C1A] border-2 bg-forest text-paper text-[15px]"
+                                                    >
+                                                        核准上架
+                                                    </button>
+                                                    <button
+                                                        onClick={() => setRejecting(p)}
+                                                        disabled={busyId === p.id}
+                                                        className="btn-ghost h-[38px] px-3.5 rounded-xl text-[15px]"
+                                                    >
+                                                        駁回
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <button
+                                                    onClick={() => setEditing(p)}
+                                                    className="btn-ghost h-[38px] px-4 rounded-xl text-[15px]"
+                                                >
+                                                    編輯
+                                                </button>
+                                            )}
+                                        </Td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                 )}
-            </div>
+            </section>
 
             {editing && (
                 <ProductModal
@@ -258,16 +231,16 @@ export default function ConsignmentProductsPage() {
     );
 }
 
-// 頂部 tab：全部 / 已上架 / 待審核 / 已駁回；待審核有非零時琥珀色強調。
+// 狀態篩選膠囊：全部 / 待審核 / 已上架 / 已駁回；待審核有非零時用蜜桃色提醒。
 function StatusTab({ label, count, active, onClick, pulseIfNonZero }) {
-    const activeCls = active ? "bg-green-600 text-white font-semibold" : "text-slate-600 hover:bg-slate-100";
-    const alertCls = pulseIfNonZero && count > 0 && !active ? " text-amber-700 font-semibold" : "";
+    const alert = pulseIfNonZero && count > 0 && !active;
     return (
         <button
             onClick={onClick}
-            className={"px-3 py-1 rounded-lg text-xs transition-colors " + activeCls + alertCls}
+            aria-pressed={active}
+            className={`focus-ring pill ${active ? "pill-on" : alert ? "bg-peach border-clay" : ""}`}
         >
-            {label} <span className="tabular-nums opacity-70">({count})</span>
+            {label} <span className="tabular-nums opacity-75">· {count}</span>
         </button>
     );
 }

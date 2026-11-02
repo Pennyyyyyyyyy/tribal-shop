@@ -1,6 +1,7 @@
 import React from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAdminAuth } from "../../hooks/useAdminAuth";
+import BrandMark from "../BrandMark";
 
 const NAV = [
     { to: "/admin", label: "總覽", end: true },
@@ -22,53 +23,37 @@ export default function AdminLayout() {
     }
 
     return (
-        <div className="h-screen flex flex-col bg-slate-100 overflow-hidden">
-            {/* Header — 綠底延續 POS 品牌，但收窄字級 */}
-            <header className="bg-green-700 text-white px-6 py-3 shadow-md">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <div className="text-base font-semibold tracking-wide">飛鼠商店 · 店長後台</div>
-                        <div className="text-[11px] text-green-100 tracking-wider uppercase mt-0.5">
-                            Flying Squirrel Shop · Admin
-                        </div>
-                    </div>
-                    <button
-                        onClick={onLogout}
-                        className="text-xs bg-green-900/40 hover:bg-green-900/60 px-3 py-1.5 rounded-full transition-colors"
-                    >
-                        登出
-                    </button>
-                </div>
+        <div className="h-screen flex flex-col bg-cream text-ink overflow-hidden">
+            {/* Header — 與 POS 同一條森林綠頂欄 */}
+            <header className="bg-forest text-paper px-8 py-4 flex items-center gap-3.5 shrink-0">
+                <BrandMark tone="light" size="sm" subtitle={null} />
+                <div className="text-[15px] opacity-85 pl-3 border-l-2 border-paper/30">店長後台</div>
+                <button
+                    onClick={onLogout}
+                    className="focus-ring ml-auto font-bold text-[15px] px-4 py-2.5 rounded-xl bg-paper/15 hover:bg-paper/25 transition-colors"
+                >
+                    登出
+                </button>
             </header>
 
-            {/* Main：sidebar 左、內容右，包在中央 rounded 卡片內 */}
-            <main className="flex-1 flex justify-center px-4 py-4 min-h-0 overflow-hidden">
-                <div className="w-full max-w-6xl bg-slate-50 rounded-3xl shadow-2xl border border-slate-200 flex overflow-hidden">
-                    <nav className="w-44 shrink-0 border-r border-slate-200 bg-white/40 py-6 px-3">
-                        {NAV.map(item => (
-                            <NavLink
-                                key={item.to}
-                                to={item.to}
-                                end={item.end}
-                                className={({ isActive }) =>
-                                    [
-                                        "block px-3 py-2 rounded-xl text-sm mb-1 transition-colors",
-                                        isActive
-                                            ? "bg-green-600 text-white font-semibold shadow-sm"
-                                            : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
-                                    ].join(" ")
-                                }
-                            >
-                                {item.label}
-                            </NavLink>
-                        ))}
-                    </nav>
+            <div className="flex-1 min-h-0 overflow-y-auto">
+                <nav className="max-w-[1280px] mx-auto px-8 pt-6 flex gap-2.5 flex-wrap" aria-label="後台選單">
+                    {NAV.map(item => (
+                        <NavLink
+                            key={item.to}
+                            to={item.to}
+                            end={item.end}
+                            className={({ isActive }) => `focus-ring tab ${isActive ? "tab-on" : "hover:border-clay"}`}
+                        >
+                            {item.label}
+                        </NavLink>
+                    ))}
+                </nav>
 
-                    <div className="flex-1 min-w-0 overflow-y-auto px-8 py-8">
-                        <Outlet />
-                    </div>
-                </div>
-            </main>
+                <main className="max-w-[1280px] mx-auto px-8 pt-7 pb-12">
+                    <Outlet />
+                </main>
+            </div>
         </div>
     );
 }
