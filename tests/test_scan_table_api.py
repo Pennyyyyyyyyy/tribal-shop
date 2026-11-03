@@ -88,5 +88,76 @@ class TestScanTableApi(unittest.TestCase):
         # 相似度 0.20 低於門檻應判定為 None (未辨識)
         self.assertIsNone(results[1])
 
+    @patch("backend.app.routers.vision.query_pgvector_nearest")
+    def test_scan_table_roi_mode_single_item(self, mock_query):
+        mock_query.return_value = {
+            "product_id": "101",
+            "name": "來一客泡菜",
+            "price": 25,
+            "image_url": "https://example.com/cup.jpg",
+            "similarity": 0.91
+        }
+        img = Image.new("RGB", (300, 300), (200, 200, 200))
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG")
+        buf.seek(0)
+        upload_file = UploadFile(filename="frame.jpg", file=buf)
+
+        data = asyncio.run(scan_checkout_table(upload_file, mode="roi", roi_count=1))
+        self.assertEqual(data["status"], "success")
+        self.assertEqual(data["total_objects_detected"], 1)
+        self.assertEqual(len(data["cart_items"]), 1)
+        self.assertEqual(data["cart_items"][0]["quantity"], 1)
+        self.assertEqual(data["cart_items"][0]["product_id"], "101")
+
+    @patch("backend.app.routers.vision.query_pgvector_nearest")
+    def test_scan_table_roi_mode_two_items_aggregation(self, mock_query):
+        mock_query.return_value = {
+            "product_id": "101",
+            "name": "來一客泡菜",
+            "price": 25,
+            "image_url": "https://example.com/cup.jpg",
+            "similarity": 0.89
+        }
+        img = Image.new("RGB", (400, 300), (200, 200, 200))
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG")
+        buf.seek(0)
+        upload_file = UploadFile(filename="frame.jpg", file=buf)
+
+        data = asyncio.run(scan_checkout_table(upload_file, mode="roi", roi_count=2))
+        self.assertEqual(data["status"], "success")
+        self.assertEqual(data["total_objects_detected"], 2)
+        # 兩個格子若命中相同商品，應自動合併數量為 2
+        self.assertEqual(len(data["cart_items"]), 1)
+        self.assertEqual(data["cart_items"][0]["quantity"], 2)
+
+    @patch("backend.app.routers.vision.query_pgvector_nearest")
+    def test_scan_table_roi_mode_three_items(self, mock_query):
+        # 模擬 3 個不同商品
+        def side_effect(conn, vec):
+            nonlocal call_count
+            call_count += 1
+            return {
+                "product_id": str(call_count),
+                "name": f"商品_{call_count}",
+                "price": 20 * call_count,
+                "image_url": "item.jpg",
+                "similarity": 0.85
+            }
+        call_count = 0
+        mock_query.side_effect = side_effect
+
+        img = Image.new("RGB", (600, 300), (200, 200, 200))
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG")
+        buf.seek(0)
+        upload_file = UploadFile(filename="frame.jpg", file=buf)
+
+        data = asyncio.run(scan_checkout_table(upload_file, mode="roi", roi_count=3))
+        self.assertEqual(data["status"], "success")
+        self.assertEqual(data["total_objects_detected"], 3)
+        self.assertEqual(len(data["cart_items"]), 3)
+
 if __name__ == "__main__":
     unittest.main()

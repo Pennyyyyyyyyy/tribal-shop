@@ -21,6 +21,8 @@ from psycopg2.extras import RealDictCursor
 
 
 
+from typing import Optional
+
 from fastapi import (
 
     APIRouter,
@@ -29,7 +31,9 @@ from fastapi import (
 
     File,
 
-    HTTPException
+    HTTPException,
+
+    Query
 
 )
 
@@ -503,6 +507,60 @@ def validate_roi(region):
 
 
 
+
+
+# ============================================================
+# Dynamic ROI Helpers (1, 2, 3 items)
+# ============================================================
+
+def get_default_roi_regions(count: int = 1) -> list[dict]:
+    """根據件數 (1, 2, 3) 回傳對應的最佳 ROI 框座標 (0~1 正規化座標)"""
+    if count == 1:
+        return [
+            {"id": 1, "name": "ROI 1", "x1": 0.20, "y1": 0.15, "x2": 0.80, "y2": 0.85}
+        ]
+    elif count == 2:
+        return [
+            {"id": 1, "name": "ROI 1", "x1": 0.08, "y1": 0.18, "x2": 0.46, "y2": 0.82},
+            {"id": 2, "name": "ROI 2", "x1": 0.54, "y1": 0.18, "x2": 0.92, "y2": 0.82}
+        ]
+    elif count == 3:
+        return [
+            {"id": 1, "name": "ROI 1", "x1": 0.05, "y1": 0.20, "x2": 0.32, "y2": 0.80},
+            {"id": 2, "name": "ROI 2", "x1": 0.365, "y1": 0.20, "x2": 0.635, "y2": 0.80},
+            {"id": 3, "name": "ROI 3", "x1": 0.68, "y1": 0.20, "x2": 0.95, "y2": 0.80}
+        ]
+    else:
+        cfg = load_roi_config()
+        return cfg.get("regions", [])[:count]
+
+
+def crop_roi_regions_from_list(image: Image.Image, regions: list[dict]):
+    """根據傳入的 regions 清單裁切影像"""
+    width, height = image.size
+    crops = []
+    for roi in regions:
+        x1 = max(0, min(width - 1, int(roi["x1"] * width)))
+        y1 = max(0, min(height - 1, int(roi["y1"] * height)))
+        x2 = max(x1 + 1, min(width, int(roi["x2"] * width)))
+        y2 = max(y1 + 1, min(height, int(roi["y2"] * height)))
+        crop = image.crop((x1, y1, x2, y2))
+        crops.append({
+            "id": roi.get("id", len(crops) + 1),
+            "name": roi.get("name", f"ROI {len(crops) + 1}"),
+            "image": crop,
+            "box": [x1, y1, x2, y2]
+        })
+    return crops
+
+
+def pad_crop_to_square(img: Image.Image, target_size: int = 224, bg_color=(255, 255, 255)) -> Image.Image:
+    """將任意長寬比的 ROI 補白邊成為 1:1 正方形並縮放至 target_size，避免變形"""
+    w, h = img.size
+    max_side = max(w, h)
+    square = Image.new("RGB", (max_side, max_side), bg_color)
+    square.paste(img, ((max_side - w) // 2, (max_side - h) // 2))
+    return square.resize((target_size, target_size), Image.Resampling.LANCZOS)
 
 
 # ============================================================
@@ -1889,10 +1947,14 @@ async def detect_product(
 @router.post("/api/vision/scan-table")
 async def scan_checkout_table(
     file: UploadFile = File(None),
-    image: UploadFile = File(None)
+    image: UploadFile = File(None),
+    mode: str = Query("auto"),
+    roi_count: int = Query(1),
+    roi_regions: Optional[str] = Query(None)
 ):
     """
-    切出桌上所有商品 -> ONNX 抽特徵 -> pgvector 比對 -> 聚合計算各商品數量回傳前端
+    切出桌上所有商品 (支援 auto 自動分水嶺分割 或 roi 固定 1~3 格模式)
+    -> ONNX 抽特徵 -> pgvector 比對 -> 聚合計算各商品數量回傳前端
     相容 file 或 image 表單欄位名
     """
     upload = file or image
@@ -1907,22 +1969,47 @@ async def scan_checkout_table(
 
     img_rgb = np.asarray(pil_full)
 
-    # 1. Stage 1: 切出畫面上所有獨立商品
-    masks, boxes = SEGMENTER.segment(img_rgb)
-    if not masks:
-        return {
-            "status": "success",
-            "total_objects_detected": 0,
-            "unrecognized_count": 0,
-            "cart_items": [],
-            "detections": []
-        }
+    if mode == "roi":
+        regions = None
+        if roi_regions:
+            try:
+                parsed = json.loads(roi_regions)
+                if isinstance(parsed, list) and len(parsed) > 0:
+                    regions = parsed
+            except Exception:
+                pass
+        if not regions:
+            regions = get_default_roi_regions(roi_count)
 
-    # 2. Stage 2: 去背並補成 224x224 正方形
-    cropped_pils = [
-        crop_mask_and_pad_pil(img_rgb, mask, box, target_size=224, bg_color=255)
-        for mask, box in zip(masks, boxes)
-    ]
+        roi_crops = crop_roi_regions_from_list(pil_full, regions)
+        if not roi_crops:
+            return {
+                "status": "success",
+                "total_objects_detected": 0,
+                "unrecognized_count": 0,
+                "cart_items": [],
+                "detections": []
+            }
+
+        boxes = [c["box"] for c in roi_crops]
+        cropped_pils = [pad_crop_to_square(c["image"], 224) for c in roi_crops]
+    else:
+        # 1. Stage 1: 切出畫面上所有獨立商品
+        masks, boxes = SEGMENTER.segment(img_rgb)
+        if not masks:
+            return {
+                "status": "success",
+                "total_objects_detected": 0,
+                "unrecognized_count": 0,
+                "cart_items": [],
+                "detections": []
+            }
+
+        # 2. Stage 2: 去背並補成 224x224 正方形
+        cropped_pils = [
+            crop_mask_and_pad_pil(img_rgb, mask, box, target_size=224, bg_color=255)
+            for mask, box in zip(masks, boxes)
+        ]
 
     # 3. Stage 3: 批次提取特徵向量
     if EMBEDDER is not None:
@@ -1977,7 +2064,7 @@ async def scan_checkout_table(
 
     return {
         "status": "success",
-        "total_objects_detected": len(masks),
+        "total_objects_detected": len(boxes),
         "unrecognized_count": unrecognized_count,
         "cart_items": list(cart_map.values()),
         "detections": detections

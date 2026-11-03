@@ -18,6 +18,22 @@ const isE2E =
   ).get("e2e") === "true";
 
 
+const DEFAULT_ROI_LAYOUTS = {
+  1: [
+    { id: 1, name: "ROI 1", x1: 0.20, y1: 0.15, x2: 0.80, y2: 0.85 }
+  ],
+  2: [
+    { id: 1, name: "ROI 1", x1: 0.08, y1: 0.18, x2: 0.46, y2: 0.82 },
+    { id: 2, name: "ROI 2", x1: 0.54, y1: 0.18, x2: 0.92, y2: 0.82 }
+  ],
+  3: [
+    { id: 1, name: "ROI 1", x1: 0.05, y1: 0.20, x2: 0.32, y2: 0.80 },
+    { id: 2, name: "ROI 2", x1: 0.365, y1: 0.20, x2: 0.635, y2: 0.80 },
+    { id: 3, name: "ROI 3", x1: 0.68, y1: 0.20, x2: 0.95, y2: 0.80 }
+  ]
+};
+
+
 export default function ScanPage() {
 
   const navigate = useNavigate();
@@ -71,6 +87,41 @@ export default function ScanPage() {
     setDeveloperMode,
   ] = useState(false);
 
+  // 模式切換：auto (自動分切) vs roi (固定 1~3 格)
+  const [scanMode, setScanMode] = useState(
+    () => localStorage.getItem("tribal_scan_mode") || "auto"
+  );
+
+  // ROI 件數：1, 2, 3
+  const [roiCount, setRoiCount] = useState(() => {
+    const saved = parseInt(localStorage.getItem("tribal_roi_count") || "1", 10);
+    return [1, 2, 3].includes(saved) ? saved : 1;
+  });
+
+  // 自訂 ROI 框線座標記憶
+  const [customRoiLayouts, setCustomRoiLayouts] = useState(() => {
+    try {
+      const saved = localStorage.getItem("tribal_custom_rois");
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  const handleModeChange = (mode) => {
+    setScanMode(mode);
+    localStorage.setItem("tribal_scan_mode", mode);
+  };
+
+  const handleRoiCountChange = (count) => {
+    setRoiCount(count);
+    localStorage.setItem("tribal_roi_count", String(count));
+  };
+
+  const activeRoiRegions =
+    customRoiLayouts[roiCount] ||
+    DEFAULT_ROI_LAYOUTS[roiCount] ||
+    DEFAULT_ROI_LAYOUTS[1];
 
   const [
     roiRegions,
@@ -118,16 +169,23 @@ export default function ScanPage() {
     );
 
 
+    let url = `${API_BASE_URL}/vision/scan-table?mode=${scanMode}`;
+    if (scanMode === "roi") {
+      url += `&roi_count=${roiCount}`;
+      if (activeRoiRegions) {
+        url += `&roi_regions=${encodeURIComponent(JSON.stringify(activeRoiRegions))}`;
+      }
+    }
+
     console.log(
       "呼叫 Vision API:",
-      `${API_BASE_URL}/vision/scan-table`
+      url
     );
-
 
     let resp;
     try {
       resp = await fetch(
-        `${API_BASE_URL}/vision/scan-table`,
+        url,
         {
           method: "POST",
           body: formData,
@@ -1092,7 +1150,7 @@ export default function ScanPage() {
                 {
                   developerMode
 
-                    ? "ROI 辨識區校正"
+                    ? `ROI 辨識區校正 (${roiCount} 件模式)`
 
                     : scanPhase ===
                       "RESULT"
@@ -1117,7 +1175,7 @@ export default function ScanPage() {
                 {
                   developerMode
 
-                    ? "拖曳辨識框調整位置，拖曳四角調整大小，完成後請儲存設定。"
+                    ? `拖曳調整 ${roiCount} 個辨識框的位置與大小，完成後請點擊下方「完成校正」。`
 
                     : scanPhase ===
                       "RESULT"
@@ -1128,71 +1186,134 @@ export default function ScanPage() {
 
                     ? "目前顯示從電腦匯入的照片。"
 
-                    : "請將商品放入辨識區，再按下拍照辨識。"
+                    : scanMode === "roi"
+
+                    ? `🎯 ROI ${roiCount} 件模式：請將商品分別擺在相機畫面的 ${roiCount} 個導引框內，再按下辨識。`
+
+                    : "⚡ 自動分切模式：請將商品任意放置於桌面上（避免堆疊），再按下辨識。"
                 }
 
               </p>
 
+              {/* 模式切換與件數選擇 */}
+              {!developerMode && scanPhase !== "RESULT" && (
+                <div className="flex flex-wrap items-center gap-3 mt-4">
+                  {/* 模式切換 Tab */}
+                  <div className="inline-flex p-1 bg-slate-100 rounded-2xl border border-slate-200 shadow-inner">
+                    <button
+                      type="button"
+                      onClick={() => handleModeChange("auto")}
+                      className={`px-4 py-2 rounded-xl text-sm font-black transition-all flex items-center gap-1.5 ${
+                        scanMode === "auto"
+                          ? "bg-white text-emerald-700 shadow-sm ring-1 ring-emerald-500/20"
+                          : "text-slate-500 hover:text-slate-800"
+                      }`}
+                    >
+                      <span>⚡</span>
+                      <span>自動辨識</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleModeChange("roi")}
+                      className={`px-4 py-2 rounded-xl text-sm font-black transition-all flex items-center gap-1.5 ${
+                        scanMode === "roi"
+                          ? "bg-blue-600 text-white shadow-sm ring-1 ring-blue-700/30"
+                          : "text-slate-500 hover:text-slate-800"
+                      }`}
+                    >
+                      <span>🎯</span>
+                      <span>ROI 區域模式</span>
+                    </button>
+                  </div>
+
+                  {/* ROI 件數選擇 (僅在 ROI 模式顯示) */}
+                  {scanMode === "roi" && (
+                    <div className="inline-flex p-1 bg-blue-50 rounded-2xl border border-blue-200 items-center shadow-inner">
+                      <span className="text-xs font-bold text-blue-800 px-2.5">
+                        預計件數：
+                      </span>
+                      {[1, 2, 3].map((num) => (
+                        <button
+                          key={num}
+                          type="button"
+                          onClick={() => handleRoiCountChange(num)}
+                          className={`px-3.5 py-1.5 rounded-xl text-sm font-black transition-all ${
+                            roiCount === num
+                              ? "bg-blue-600 text-white shadow-sm"
+                              : "text-blue-700 hover:bg-blue-100/80"
+                          }`}
+                        >
+                          {num} 件
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
             </div>
 
 
-            {/* ROI 開發者按鈕 */}
+            {/* ROI 開發者按鈕 (僅在 ROI 模式顯示) */}
 
-            <button
+            {scanMode === "roi" && (
+              <button
 
-              type="button"
+                type="button"
 
-              onClick={() => {
+                onClick={() => {
 
-                setDeveloperMode(
-                  (prev) => !prev
-                );
+                  setDeveloperMode(
+                    (prev) => !prev
+                  );
 
-              }}
+                }}
 
-              disabled={
-                scanPhase ===
-                "SCANNING"
-              }
-
-              className={`
-                shrink-0
-                px-4
-                py-2.5
-                rounded-xl
-                border
-                text-sm
-                font-bold
-                transition-all
-
-                ${
-                  developerMode
-
-                    ? "bg-amber-100 border-amber-300 text-amber-700"
-
-                    : "bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
-                }
-
-                ${
+                disabled={
                   scanPhase ===
                   "SCANNING"
-
-                    ? "opacity-50 cursor-not-allowed"
-
-                    : ""
                 }
-              `}
-            >
 
-              {
-                developerMode
+                className={`
+                  shrink-0
+                  px-4
+                  py-2.5
+                  rounded-xl
+                  border
+                  text-sm
+                  font-bold
+                  transition-all
 
-                  ? "✕ 離開 ROI 校正"
+                  ${
+                    developerMode
 
-                  : "⚙ ROI 校正"
-              }
+                      ? "bg-amber-100 border-amber-300 text-amber-700"
 
-            </button>
+                      : "bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+                  }
+
+                  ${
+                    scanPhase ===
+                    "SCANNING"
+
+                      ? "opacity-50 cursor-not-allowed"
+
+                      : ""
+                  }
+                `}
+              >
+
+                {
+                  developerMode
+
+                    ? "✕ 離開微調"
+
+                    : "⚙ 微調框線"
+                }
+
+              </button>
+            )}
 
           </div>
 
@@ -1417,28 +1538,56 @@ export default function ScanPage() {
 
 
                     {/* =========================================
-                        ROI Overlay
+                        ROI Overlay (微調校正模式)
                     ========================================== */}
 
-                    {
-                      developerMode &&
-                      roiRegions.length ===
-                        6 && (
+                    {developerMode && (
+                      <RoiEditor
+                        regions={activeRoiRegions}
+                        onChange={(newRegions) => {
+                          setCustomRoiLayouts((prev) => {
+                            const next = { ...prev, [roiCount]: newRegions };
+                            localStorage.setItem("tribal_custom_rois", JSON.stringify(next));
+                            return next;
+                          });
+                        }}
+                      />
+                    )}
 
-                        <RoiEditor
+                    {/* =========================================
+                        ROI 輔助導引框 (常駐擺放指引)
+                    ========================================== */}
+                    {!developerMode && scanMode === "roi" && (
+                      <div className="absolute inset-0 pointer-events-none z-20">
+                        {activeRoiRegions.map((region) => {
+                          const left = `${region.x1 * 100}%`;
+                          const top = `${region.y1 * 100}%`;
+                          const width = `${(region.x2 - region.x1) * 100}%`;
+                          const height = `${(region.y2 - region.y1) * 100}%`;
+                          return (
+                            <div
+                              key={region.id}
+                              style={{ left, top, width, height }}
+                              className="absolute border-2 border-dashed border-emerald-400 bg-emerald-500/10 rounded-2xl flex flex-col justify-between p-3 transition-all duration-300 shadow-[0_0_15px_rgba(16,185,129,0.3)]"
+                            >
+                              <div className="inline-flex self-start items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-600/90 text-white text-xs font-bold backdrop-blur-sm shadow">
+                                <span>🎯</span>
+                                <span>商品 {region.id}</span>
+                              </div>
+                              <div className="text-center text-xs text-white font-bold bg-black/50 py-1 px-3 rounded-lg self-center backdrop-blur-sm">
+                                請將商品置於框內
+                              </div>
+                            </div>
+                          );
+                        })}
 
-                          regions={
-                            roiRegions
-                          }
-
-                          onChange={
-                            setRoiRegions
-                          }
-
-                        />
-
-                      )
-                    }
+                        {/* 頂部引導指示牌 */}
+                        <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-slate-900/85 text-emerald-300 border border-emerald-500/30 px-4 py-1.5 rounded-full text-xs font-bold shadow-lg backdrop-blur-sm flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                          <span>ROI {roiCount} 件模式：請將商品分別放入上方框內</span>
+                        </div>
+                      </div>
+                    )}
 
 
                     {/* =========================================
@@ -1466,7 +1615,7 @@ export default function ScanPage() {
                           "
                         >
 
-                          ROI 校正模式
+                          ROI 微調模式 ({roiCount} 件)
 
                         </div>
 
@@ -1479,7 +1628,7 @@ export default function ScanPage() {
 
 
                 {/* =============================================
-                    ROI 模式控制
+                    ROI 模式控制 (微調模式)
                 ============================================== */}
 
                 {
@@ -1500,13 +1649,15 @@ export default function ScanPage() {
                     >
 
                       <button
-
                         type="button"
-
-                        onClick={
-                          resetROIConfig
-                        }
-
+                        onClick={() => {
+                          setCustomRoiLayouts((prev) => {
+                            const next = { ...prev, [roiCount]: DEFAULT_ROI_LAYOUTS[roiCount] };
+                            localStorage.setItem("tribal_custom_rois", JSON.stringify(next));
+                            return next;
+                          });
+                          alert(`已將 ${roiCount} 件模式的框線恢復為預設位置！`);
+                        }}
                         className="
                           px-6
                           py-3
@@ -1520,24 +1671,14 @@ export default function ScanPage() {
                           transition-all
                         "
                       >
-
-                        ↺ 重設 2 × 3
-
+                        ↺ 重設為預設框線
                       </button>
 
-
                       <button
-
                         type="button"
-
-                        onClick={
-                          saveROIConfig
-                        }
-
-                        disabled={
-                          roiSaving
-                        }
-
+                        onClick={() => {
+                          setDeveloperMode(false);
+                        }}
                         className="
                           px-8
                           py-3
@@ -1547,19 +1688,10 @@ export default function ScanPage() {
                           font-bold
                           shadow-sm
                           hover:bg-emerald-700
-                          disabled:opacity-50
                           transition-all
                         "
                       >
-
-                        {
-                          roiSaving
-
-                            ? "儲存中..."
-
-                            : "儲存 ROI 設定"
-                        }
-
+                        ✓ 完成微調
                       </button>
 
                     </div>
