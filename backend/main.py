@@ -67,6 +67,7 @@ app.add_middleware(
 
 # 註冊路由
 app.include_router(vision.router, prefix="/vision", tags=["Vision"])
+app.include_router(vision.router, prefix="/api/vision", tags=["Vision (API Alias)"])
 app.include_router(payment.router, tags=["Payment"])
 
 

@@ -3,7 +3,10 @@
 Run from the backend project root while FastAPI is running:
     python embedding_worker.py
 
-No existing backend or Cloudflare source files need to be modified.
+建庫流程說明：
+FastAPI 的 /vision/generate-embeddings/{product_id} 端點在處理 5-6 張商品照片時，
+會自動調用 app.ai.preprocessor.preprocess_single_enrollment_image 與 app.ai.segmenter.WhiteBgSegmenter
+進行去背與 1:1 正方形補邊，確保建庫特徵向量與現場結帳台多商品分割特徵分佈 100% 一致。
 """
 
 import logging
@@ -15,6 +18,13 @@ import psycopg2
 import requests
 from dotenv import load_dotenv
 from psycopg2.extras import RealDictCursor
+
+# 匯入預處理模組供直接參照或排程檢驗
+try:
+    from app.ai.segmenter import WhiteBgSegmenter
+    from app.ai.preprocessor import preprocess_single_enrollment_image
+except ImportError:
+    pass
 
 
 BASE_DIR = Path(__file__).resolve().parent

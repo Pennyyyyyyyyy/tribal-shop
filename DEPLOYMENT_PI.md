@@ -35,8 +35,8 @@
 ### Step 1: 安裝樹莓派系統必備工具與 Node.js 20
 
 ```bash
-# 1. 更新套件清單並安裝 Python 與系統工具
-sudo apt update && sudo apt install -y git python3 python3-venv python3-pip curl libpq-dev
+# 1. 更新套件清單並安裝 Python 與系統工具 (包含 OpenCV 影像處理所需的 libglib 與 libgl)
+sudo apt update && sudo apt install -y git python3 python3-venv python3-pip curl libpq-dev libglib2.0-0 libgl1
 
 # 2. 安裝 Node.js 20.x LTS (若樹莓派已安裝 Node 18+ 可跳過此區塊)
 curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
@@ -79,15 +79,12 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install --upgrade pip
 
-# 4. 安裝後端所需依賴 (ONNX Runtime、FastAPI、psycopg2 等輕量高速套件)
+# 4. 安裝後端所需依賴 (ONNX Runtime、OpenCV Headless 切割演算法、FastAPI、psycopg2 等輕量高速套件)
 pip install -r backend/requirements.txt
 ```
 
-> 💡 **樹莓派 5 特別提醒**：
-> 若使用的是 Raspberry Pi 5，因底層改為 RP1 晶片，傳統 `RPi.GPIO` 可能無法直接定址，建議額外安裝 drop-in 相容套件：
-> ```bash
-> pip install rpi-lgpio
-> ```
+> 💡 **硬體 GPIO 支援說明**：
+> `backend/requirements.txt` 內已預先納入 `rpi-lgpio` 相容層（支援 Raspberry Pi 4 與 5），執行 `pip install -r backend/requirements.txt` 時會在 Linux 環境自動安裝，無須額外手動安裝。
 
 ---
 
@@ -286,3 +283,19 @@ sudo systemctl stop tribal-shop.service
      ```bash
      curl -X POST "http://127.0.0.1:8000/api/mock-coin?amount=10"
      ```
+
+### Q5: 啟動時報錯 `ModuleNotFoundError: No module named 'cv2'`
+- **原因**：拉取最新代碼後，虛擬環境尚未安裝新增的 `opencv-python-headless` 套件（白底多物件切割演算法核心依賴）。
+- **解法**：在樹莓派終端機執行以下指令更新虛擬環境套件：
+  ```bash
+  cd ~/tribal-shop  # (若為巢狀目錄請依實際路徑進入，例如 ~/tribal-shop/tribal-shop)
+  # 啟用虛擬環境並安裝
+  source .venv/bin/activate
+  pip install -r backend/requirements.txt
+  # 或直接指定 .venv/bin/pip 安裝：
+  .venv/bin/pip install -r backend/requirements.txt
+  ```
+  若啟動時拋出 `libGL.so` 或 `libgthread` 相關缺失錯誤，請補裝系統庫：
+  ```bash
+  sudo apt update && sudo apt install -y libglib2.0-0 libgl1
+  ```

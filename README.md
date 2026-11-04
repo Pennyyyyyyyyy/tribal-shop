@@ -36,8 +36,9 @@
 ```
 
 - **樹莓派只負責**：
-  1. 連接店內實體 USB 鏡頭，透過本地 FastAPI 執行 EfficientNet 影像特徵萃取。
-  2. 運行 React 前端（提供現場顧客觸控結帳）。
+  1. 連接店內實體 USB 鏡頭，透過本地 FastAPI 執行 EfficientNet ONNX 影像特徵萃取。
+  2. 監聽實體投幣機脈衝訊號（BCM 27 / Pin 13），即時推播投幣金額至前端。
+  3. 運行 React 前端（提供現場顧客觸控結帳）。
 - **雲端 Worker 負責**：
   - 商品清單、結帳扣庫存、LINE 訊息推播、店長手機後台管理（樹莓派不需跑 Worker）。
 
@@ -47,18 +48,20 @@
 
 ```
 tribal-shop/
-├── backend/                  # 本地 FastAPI 影像辨識服務
+├── backend/                  # 本地 FastAPI 影像辨識與投幣機服務
 │   ├── main.py               # 服務進入點 (port 8000)
+│   ├── embedding_worker.py   # 自動向量化背景排程服務
 │   ├── app/
-│   │   ├── ai/               # EfficientNet 模型與推論
-│   │   ├── routers/vision.py # 鏡頭擷取與商品比對 API
-│   │   └── database.py       # 本地 SQLite 備援
-│   └── requirements.txt
+│   │   ├── ai/               # EfficientNet ONNX 模型與推論
+│   │   ├── hardware/         # 樹莓派 GPIO 27 投幣機中斷監聽
+│   │   └── routers/          # vision 鏡頭比對與 payment 投幣 WebSocket
+│   └── requirements.txt      # 輕量化相依套件 (ONNX Runtime + Pillow + FastAPI)
 ├── frontend/                 # 現場 POS 前端介面
 │   ├── src/                  # 結帳流程 UI
 │   ├── .env                  # 前端環境變數 (指到本地 8000 + 雲端 Worker)
 │   └── package.json
-├── start_pi.sh               # 樹莓派一鍵啟動腳本 (同時起後端與前端)
+├── start_pi.sh               # 樹莓派一鍵啟動腳本 (同時起後端、前端與硬體監聽)
+├── DEPLOYMENT_PI.md          # 樹莓派詳細部署與防雷手冊
 └── README.md
 ```
 

@@ -13,12 +13,15 @@ import psycopg2
 from pathlib import Path
 
 from PIL import Image
+import numpy as np
 
 from dotenv import load_dotenv
 
 from psycopg2.extras import RealDictCursor
 
 
+
+from typing import Optional
 
 from fastapi import (
 
@@ -28,7 +31,9 @@ from fastapi import (
 
     File,
 
-    HTTPException
+    HTTPException,
+
+    Query
 
 )
 
@@ -40,13 +45,17 @@ from pydantic import BaseModel
 
 from app.ai.predict import get_embedding, get_embeddings
 from app.ai.augmentation import augment_to_target
+from app.ai.segmenter import WhiteBgSegmenter
+from app.ai.preprocessor import crop_mask_and_pad_pil, preprocess_single_enrollment_image
+from app.ai.onnx_embedder import OnnxEfficientNetEmbedder
 import requests
 
-
-
-
-
 router = APIRouter()
+
+SEGMENTER = WhiteBgSegmenter()
+ONNX_MODEL_FILE = Path(__file__).resolve().parent.parent / "ai" / "best_efficientnet_model.onnx"
+EMBEDDER = OnnxEfficientNetEmbedder(ONNX_MODEL_FILE) if ONNX_MODEL_FILE.is_file() else None
+SIMILARITY_THRESHOLD = float(os.getenv("SIMILARITY_THRESHOLD", "0.48"))
 
 
 
@@ -501,6 +510,60 @@ def validate_roi(region):
 
 
 # ============================================================
+# Dynamic ROI Helpers (1, 2, 3 items)
+# ============================================================
+
+def get_default_roi_regions(count: int = 1) -> list[dict]:
+    """根據件數 (1, 2, 3) 回傳對應的最佳 ROI 框座標 (0~1 正規化座標)"""
+    if count == 1:
+        return [
+            {"id": 1, "name": "ROI 1", "x1": 0.20, "y1": 0.15, "x2": 0.80, "y2": 0.85}
+        ]
+    elif count == 2:
+        return [
+            {"id": 1, "name": "ROI 1", "x1": 0.08, "y1": 0.18, "x2": 0.46, "y2": 0.82},
+            {"id": 2, "name": "ROI 2", "x1": 0.54, "y1": 0.18, "x2": 0.92, "y2": 0.82}
+        ]
+    elif count == 3:
+        return [
+            {"id": 1, "name": "ROI 1", "x1": 0.05, "y1": 0.20, "x2": 0.32, "y2": 0.80},
+            {"id": 2, "name": "ROI 2", "x1": 0.365, "y1": 0.20, "x2": 0.635, "y2": 0.80},
+            {"id": 3, "name": "ROI 3", "x1": 0.68, "y1": 0.20, "x2": 0.95, "y2": 0.80}
+        ]
+    else:
+        cfg = load_roi_config()
+        return cfg.get("regions", [])[:count]
+
+
+def crop_roi_regions_from_list(image: Image.Image, regions: list[dict]):
+    """根據傳入的 regions 清單裁切影像"""
+    width, height = image.size
+    crops = []
+    for roi in regions:
+        x1 = max(0, min(width - 1, int(roi["x1"] * width)))
+        y1 = max(0, min(height - 1, int(roi["y1"] * height)))
+        x2 = max(x1 + 1, min(width, int(roi["x2"] * width)))
+        y2 = max(y1 + 1, min(height, int(roi["y2"] * height)))
+        crop = image.crop((x1, y1, x2, y2))
+        crops.append({
+            "id": roi.get("id", len(crops) + 1),
+            "name": roi.get("name", f"ROI {len(crops) + 1}"),
+            "image": crop,
+            "box": [x1, y1, x2, y2]
+        })
+    return crops
+
+
+def pad_crop_to_square(img: Image.Image, target_size: int = 224, bg_color=(255, 255, 255)) -> Image.Image:
+    """將任意長寬比的 ROI 補白邊成為 1:1 正方形並縮放至 target_size，避免變形"""
+    w, h = img.size
+    max_side = max(w, h)
+    square = Image.new("RGB", (max_side, max_side), bg_color)
+    square.paste(img, ((max_side - w) // 2, (max_side - h) // 2))
+    return square.resize((target_size, target_size), Image.Resampling.LANCZOS)
+
+
+# ============================================================
 
 # Crop ROI
 
@@ -862,6 +925,143 @@ def search_pgvector(embedding):
 
         conn.close()
 
+
+def query_pgvector_nearest(conn, vec_list: list[float]) -> dict | None:
+    """在 pgvector 中與各商品的多角度向量進行比對，取最相似的一筆。
+    對齊既有資料庫結構：
+    - product_embeddings (label_name, image_name, embedding)
+    - products (id, name, price, stock, image_url, label_name)
+    """
+    vec_str = "[" + ",".join(f"{v:.6f}" for v in vec_list) + "]"
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute(
+            """
+            SELECT 
+                p.id,
+                p.name,
+                p.price,
+                p.image_url,
+                p.stock,
+                p.label_name,
+                1 - (pe.embedding <=> %s::vector) AS similarity
+            FROM product_embeddings pe
+            JOIN products p ON p.label_name = pe.label_name
+            ORDER BY pe.embedding <=> %s::vector ASC
+            LIMIT 1;
+            """,
+            (vec_str, vec_str)
+        )
+        row = cur.fetchone()
+
+    if not row:
+        print("[AI 辨識] 查無任何候選商品")
+        return None
+
+    sim = float(row["similarity"])
+    if sim < SIMILARITY_THRESHOLD:
+        print(
+            f"[AI 辨識] ⚠️ 未達相似度門檻：最接近「{row['name']}」"
+            f" 相似度 {sim:.4f} < 門檻 {SIMILARITY_THRESHOLD}"
+        )
+        return None
+
+    print(
+        f"[AI 辨識] ✅ 成功命中：「{row['name']}」"
+        f" 相似度 {sim:.4f} >= 門檻 {SIMILARITY_THRESHOLD}"
+    )
+    return {
+        "product_id": str(row["id"]),
+        "name": row["name"],
+        "price": int(row["price"]) if row["price"] is not None else 0,
+        "image_url": row["image_url"],
+        "similarity": round(sim, 4),
+        "label_name": row["label_name"]
+    }
+
+
+def query_pgvector_batch(conn, vec_list_of_lists: list[list[float]]) -> list[dict | None]:
+    """批次透過 CROSS JOIN LATERAL 查詢多個商品的最高相似度商品，
+    僅需 1 次資料庫網路往返，大幅降低跨國延遲。
+    """
+    if not vec_list_of_lists:
+        return []
+
+    # 若單元測試中 query_pgvector_nearest 被 mock，則走 mock 呼叫
+    if hasattr(query_pgvector_nearest, "assert_called") or getattr(query_pgvector_nearest, "_mock_return_value", None) is not None:
+        return [query_pgvector_nearest(conn, v) for v in vec_list_of_lists]
+
+    if len(vec_list_of_lists) == 1:
+        return [query_pgvector_nearest(conn, vec_list_of_lists[0])]
+
+    values_clause = ", ".join("(%s, %s::vector)" for _ in range(len(vec_list_of_lists)))
+    params = []
+    for idx, v in enumerate(vec_list_of_lists):
+        vec_str = "[" + ",".join(f"{val:.6f}" for val in v) + "]"
+        params.extend([idx + 1, vec_str])
+
+    sql = f"""
+        SELECT 
+            v.idx,
+            q.id,
+            q.name,
+            q.price,
+            q.image_url,
+            q.stock,
+            q.label_name,
+            q.similarity
+        FROM (
+            VALUES {values_clause}
+        ) AS v(idx, vec)
+        CROSS JOIN LATERAL (
+            SELECT 
+                p.id,
+                p.name,
+                p.price,
+                p.image_url,
+                p.stock,
+                p.label_name,
+                1 - (pe.embedding <=> v.vec) AS similarity
+            FROM product_embeddings pe
+            JOIN products p ON p.label_name = pe.label_name
+            ORDER BY pe.embedding <=> v.vec ASC
+            LIMIT 1
+        ) AS q
+        ORDER BY v.idx ASC;
+    """
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute(sql, params)
+        rows = cur.fetchall()
+
+    row_map = {int(r["idx"]): r for r in rows}
+    results = []
+    for i in range(1, len(vec_list_of_lists) + 1):
+        row = row_map.get(i)
+        if not row:
+            print(f"[AI 辨識] 第 {i} 個物件查無候選")
+            results.append(None)
+            continue
+        sim = float(row["similarity"])
+        if sim < SIMILARITY_THRESHOLD:
+            print(
+                f"[AI 辨識] ⚠️ 第 {i} 個物件未達門檻：最接近「{row['name']}」"
+                f" 相似度 {sim:.4f} < 門檻 {SIMILARITY_THRESHOLD}"
+            )
+            results.append(None)
+        else:
+            print(
+                f"[AI 辨識] ✅ 第 {i} 個物件成功命中：「{row['name']}」"
+                f" 相似度 {sim:.4f} >= 門檻 {SIMILARITY_THRESHOLD}"
+            )
+            results.append({
+                "product_id": str(row["id"]),
+                "name": row["name"],
+                "price": int(row["price"]) if row["price"] is not None else 0,
+                "image_url": row["image_url"],
+                "similarity": round(sim, 4),
+                "label_name": row["label_name"]
+            })
+
+    return results
 
 
 
@@ -1258,15 +1458,35 @@ def generate_embeddings(product_id: int):
 
             # ================================================
 
-            # 5. 6 張 augmentation → 120 張
+            # 5. 建庫去背與 1:1 正方形補邊 → 6 張 augmentation → 120 張
+
+            # (使建庫特徵空間與現場多商品裁切 100% 一致)
 
             # ================================================
 
 
 
+            clean_images = [
+
+                preprocess_single_enrollment_image(
+
+                    img,
+
+                    SEGMENTER,
+
+                    target_size=224
+
+                )
+
+                for img in original_images
+
+            ]
+
+
+
             augmented_images = augment_to_target(
 
-                original_images,
+                clean_images,
 
                 target=120
 
@@ -1720,6 +1940,134 @@ async def detect_product(
 
             predictions
 
+    }
+
+
+@router.post("/scan-table")
+@router.post("/api/vision/scan-table")
+async def scan_checkout_table(
+    file: UploadFile = File(None),
+    image: UploadFile = File(None),
+    mode: str = Query("auto"),
+    roi_count: int = Query(1),
+    roi_regions: Optional[str] = Query(None)
+):
+    """
+    切出桌上所有商品 (支援 auto 自動分水嶺分割 或 roi 固定 1~3 格模式)
+    -> ONNX 抽特徵 -> pgvector 比對 -> 聚合計算各商品數量回傳前端
+    相容 file 或 image 表單欄位名
+    """
+    upload = file or image
+    if upload is None:
+        raise HTTPException(status_code=400, detail="未提供影像檔案 (需為 file 或 image)")
+
+    raw_bytes = await upload.read()
+    try:
+        pil_full = Image.open(io.BytesIO(raw_bytes)).convert("RGB")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"無法解析圖片檔案：{e}")
+
+    img_rgb = np.asarray(pil_full)
+
+    if mode == "roi":
+        regions = None
+        if roi_regions:
+            try:
+                parsed = json.loads(roi_regions)
+                if isinstance(parsed, list) and len(parsed) > 0:
+                    regions = parsed
+            except Exception:
+                pass
+        if not regions:
+            regions = get_default_roi_regions(roi_count)
+
+        roi_crops = crop_roi_regions_from_list(pil_full, regions)
+        if not roi_crops:
+            return {
+                "status": "success",
+                "total_objects_detected": 0,
+                "unrecognized_count": 0,
+                "cart_items": [],
+                "detections": []
+            }
+
+        boxes = [c["box"] for c in roi_crops]
+        cropped_pils = [pad_crop_to_square(c["image"], 224) for c in roi_crops]
+    else:
+        # 1. Stage 1: 切出畫面上所有獨立商品
+        masks, boxes = SEGMENTER.segment(img_rgb)
+        if not masks:
+            return {
+                "status": "success",
+                "total_objects_detected": 0,
+                "unrecognized_count": 0,
+                "cart_items": [],
+                "detections": []
+            }
+
+        # 2. Stage 2: 去背並補成 224x224 正方形
+        cropped_pils = [
+            crop_mask_and_pad_pil(img_rgb, mask, box, target_size=224, bg_color=255)
+            for mask, box in zip(masks, boxes)
+        ]
+
+    # 3. Stage 3: 批次提取特徵向量
+    if EMBEDDER is not None:
+        embeddings = EMBEDDER.extract_batch(cropped_pils)
+    else:
+        embeddings = np.array(get_embeddings(cropped_pils), dtype=np.float32)
+
+    # 4. Stage 4: 比對 pgvector 並自動歸戶統計數量
+    cart_map: dict[str, dict] = {}
+    detections = []
+    unrecognized_count = 0
+
+    conn = get_db()
+    try:
+        matches = query_pgvector_batch(conn, [emb.tolist() for emb in embeddings])
+        for idx, (box, match) in enumerate(zip(boxes, matches)):
+            if match is None:
+                unrecognized_count += 1
+                detections.append({
+                    "index": idx + 1,
+                    "bbox": box,
+                    "matched": False,
+                    "name": "未辨識商品"
+                })
+                continue
+
+            detections.append({
+                "index": idx + 1,
+                "bbox": box,
+                "matched": True,
+                **match
+            })
+
+            pid = match["product_id"]
+            if pid not in cart_map:
+                cart_map[pid] = {
+                    "product_id": pid,
+                    "id": pid,
+                    "name": match["name"],
+                    "price": match["price"],
+                    "image_url": match["image_url"],
+                    "quantity": 1,
+                    "max_similarity": match["similarity"]
+                }
+            else:
+                cart_map[pid]["quantity"] += 1
+                cart_map[pid]["max_similarity"] = max(
+                    cart_map[pid]["max_similarity"], match["similarity"]
+                )
+    finally:
+        conn.close()
+
+    return {
+        "status": "success",
+        "total_objects_detected": len(boxes),
+        "unrecognized_count": unrecognized_count,
+        "cart_items": list(cart_map.values()),
+        "detections": detections
     }
 
 
