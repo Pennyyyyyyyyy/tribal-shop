@@ -8,6 +8,7 @@ import { useNavigate } from "react-router-dom";
 import { useCheckout } from "../context/CheckoutContext";
 import CameraView from "../components/CameraView";
 import RoiEditor from "../components/RoiEditor";
+import CartIcon from "../components/CartIcon";
 import { useVoiceInstruction } from "../hooks/useVoiceInstruction";
 
 
@@ -1074,27 +1075,11 @@ export default function ScanPage() {
   return (
 
     <div
-      className="
-        w-full
-        flex-1
-        min-h-0
-        bg-slate-50
-        overflow-auto
-      "
+      className="w-full flex-1 min-h-0 overflow-auto"
     >
 
       <div
-        className="
-          w-full
-          max-w-6xl
-          mx-auto
-          min-h-full
-          p-4
-          md:p-6
-          flex
-          flex-col
-          gap-4
-        "
+        className="w-full max-w-6xl mx-auto min-h-full flex flex-col gap-4"
       >
 
 
@@ -1103,20 +1088,7 @@ export default function ScanPage() {
         ==================================================== */}
 
         <div
-          className="
-            flex-1
-            min-h-0
-            bg-white
-            border
-            border-slate-200
-            rounded-[28px]
-            shadow-sm
-            p-5
-            md:p-7
-            flex
-            flex-col
-            gap-5
-          "
+          className="panel flex-1 min-h-0 p-5 md:p-7 flex flex-col gap-5"
         >
 
 
@@ -1139,12 +1111,7 @@ export default function ScanPage() {
             <div>
 
               <h1
-                className="
-                  text-2xl
-                  md:text-3xl
-                  font-black
-                  text-slate-800
-                "
+                className="font-display text-2xl md:text-3xl text-ink"
               >
 
                 {
@@ -1164,12 +1131,7 @@ export default function ScanPage() {
 
 
               <p
-                className="
-                  mt-2
-                  text-sm
-                  md:text-base
-                  text-slate-500
-                "
+                className="mt-2 text-sm md:text-base text-ink/60"
               >
 
                 {
@@ -1188,9 +1150,9 @@ export default function ScanPage() {
 
                     : scanMode === "roi"
 
-                    ? `🎯 ROI ${roiCount} 件模式：請將商品分別擺在相機畫面的 ${roiCount} 個導引框內，再按下辨識。`
+                    ? `ROI ${roiCount} 件模式：請將商品分別擺在相機畫面的 ${roiCount} 個導引框內，再按下辨識。`
 
-                    : "⚡ 自動分切模式：請將商品任意放置於桌面上（避免堆疊），再按下辨識。"
+                    : "自動分切模式：請將商品任意放置於桌面上（避免堆疊），再按下辨識。"
                 }
 
               </p>
@@ -1199,38 +1161,30 @@ export default function ScanPage() {
               {!developerMode && scanPhase !== "RESULT" && (
                 <div className="flex flex-wrap items-center gap-3 mt-4">
                   {/* 模式切換 Tab */}
-                  <div className="inline-flex p-1 bg-slate-100 rounded-2xl border border-slate-200 shadow-inner">
+                  <div className="inline-flex gap-2">
                     <button
                       type="button"
                       onClick={() => handleModeChange("auto")}
-                      className={`px-4 py-2 rounded-xl text-sm font-black transition-all flex items-center gap-1.5 ${
-                        scanMode === "auto"
-                          ? "bg-white text-emerald-700 shadow-sm ring-1 ring-emerald-500/20"
-                          : "text-slate-500 hover:text-slate-800"
-                      }`}
+                      aria-pressed={scanMode === "auto"}
+                      className={`pill focus-ring ${scanMode === "auto" ? "pill-on" : "hover:border-clay"}`}
                     >
-                      <span>⚡</span>
-                      <span>自動辨識</span>
+                      自動辨識
                     </button>
 
                     <button
                       type="button"
                       onClick={() => handleModeChange("roi")}
-                      className={`px-4 py-2 rounded-xl text-sm font-black transition-all flex items-center gap-1.5 ${
-                        scanMode === "roi"
-                          ? "bg-blue-600 text-white shadow-sm ring-1 ring-blue-700/30"
-                          : "text-slate-500 hover:text-slate-800"
-                      }`}
+                      aria-pressed={scanMode === "roi"}
+                      className={`pill focus-ring ${scanMode === "roi" ? "pill-on" : "hover:border-clay"}`}
                     >
-                      <span>🎯</span>
-                      <span>ROI 區域模式</span>
+                      ROI 區域模式
                     </button>
                   </div>
 
                   {/* ROI 件數選擇 (僅在 ROI 模式顯示) */}
                   {scanMode === "roi" && (
-                    <div className="inline-flex p-1 bg-blue-50 rounded-2xl border border-blue-200 items-center shadow-inner">
-                      <span className="text-xs font-bold text-blue-800 px-2.5">
+                    <div className="inline-flex items-center gap-2">
+                      <span className="text-sm font-bold text-ink/70 pl-1">
                         預計件數：
                       </span>
                       {[1, 2, 3].map((num) => (
@@ -1238,10 +1192,11 @@ export default function ScanPage() {
                           key={num}
                           type="button"
                           onClick={() => handleRoiCountChange(num)}
-                          className={`px-3.5 py-1.5 rounded-xl text-sm font-black transition-all ${
+                          aria-pressed={roiCount === num}
+                          className={`pill focus-ring ${
                             roiCount === num
-                              ? "bg-blue-600 text-white shadow-sm"
-                              : "text-blue-700 hover:bg-blue-100/80"
+                              ? "bg-clay border-ink text-paper"
+                              : "hover:border-clay"
                           }`}
                         >
                           {num} 件
@@ -1275,33 +1230,9 @@ export default function ScanPage() {
                   "SCANNING"
                 }
 
-                className={`
-                  shrink-0
-                  px-4
-                  py-2.5
-                  rounded-xl
-                  border
-                  text-sm
-                  font-bold
-                  transition-all
-
-                  ${
-                    developerMode
-
-                      ? "bg-amber-100 border-amber-300 text-amber-700"
-
-                      : "bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
-                  }
-
-                  ${
-                    scanPhase ===
-                    "SCANNING"
-
-                      ? "opacity-50 cursor-not-allowed"
-
-                      : ""
-                  }
-                `}
+                className={`btn-ghost focus-ring shrink-0 h-11 px-4 text-sm ${
+                  developerMode ? "bg-peach hover:bg-peach border-2 border-clay" : ""
+                }`}
               >
 
                 {
@@ -1309,7 +1240,7 @@ export default function ScanPage() {
 
                     ? "✕ 離開微調"
 
-                    : "⚙ 微調框線"
+                    : "微調框線"
                 }
 
               </button>
@@ -1326,17 +1257,7 @@ export default function ScanPage() {
             lastAddedItem && (
 
             <div
-              className="
-                shrink-0
-                bg-emerald-50
-                border
-                border-emerald-200
-                rounded-xl
-                px-4
-                py-3
-                text-emerald-800
-                text-sm
-              "
+              className="shrink-0 bg-moss/40 border-2 border-moss rounded-2xl px-4 py-3 text-ink text-sm"
             >
 
               ✓ 已加入：
@@ -1393,17 +1314,7 @@ export default function ScanPage() {
                 >
 
                   <div
-                    className="
-                      relative
-                      w-full
-                      aspect-video
-                      bg-black
-                      rounded-[26px]
-                      overflow-hidden
-                      border
-                      border-slate-700
-                      shadow-xl
-                    "
+                    className="relative w-full aspect-video bg-cocoa rounded-[22px] overflow-hidden border-[3px] border-ink"
                   >
 
 
@@ -1417,14 +1328,7 @@ export default function ScanPage() {
                       ? (
 
                         <div
-                          className="
-                            absolute
-                            inset-0
-                            flex
-                            items-center
-                            justify-center
-                            bg-black
-                          "
+                          className="absolute inset-0 flex items-center justify-center bg-cocoa"
                         >
 
                           <img
@@ -1450,27 +1354,11 @@ export default function ScanPage() {
                               "SCANNING" && (
 
                               <div
-                                className="
-                                  absolute
-                                  inset-0
-                                  bg-black/50
-                                  flex
-                                  items-center
-                                  justify-center
-                                  z-20
-                                "
+                                className="absolute inset-0 bg-cocoa/60 flex items-center justify-center z-20"
                               >
 
                                 <div
-                                  className="
-                                    bg-white
-                                    px-6
-                                    py-3
-                                    rounded-2xl
-                                    font-bold
-                                    text-slate-800
-                                    shadow-xl
-                                  "
+                                  className="bg-paper border-[3px] border-ink px-6 py-3 rounded-2xl font-display text-lg text-ink"
                                 >
 
                                   辨識中...
@@ -1484,18 +1372,7 @@ export default function ScanPage() {
 
 
                           <div
-                            className="
-                              absolute
-                              bottom-4
-                              left-4
-                              z-20
-                              bg-black/60
-                              text-white
-                              px-3
-                              py-1.5
-                              rounded-full
-                              text-xs
-                            "
+                            className="absolute bottom-4 left-4 z-20 bg-cocoa/80 text-cream px-3 py-1.5 rounded-full text-xs"
                           >
 
                             電腦匯入圖片
@@ -1568,13 +1445,12 @@ export default function ScanPage() {
                             <div
                               key={region.id}
                               style={{ left, top, width, height }}
-                              className="absolute border-2 border-dashed border-emerald-400 bg-emerald-500/10 rounded-2xl flex flex-col justify-between p-3 transition-all duration-300 shadow-[0_0_15px_rgba(16,185,129,0.3)]"
+                              className="absolute border-[3px] border-dashed border-peach bg-peach/10 rounded-2xl flex flex-col justify-between p-3 transition-all duration-300"
                             >
-                              <div className="inline-flex self-start items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-600/90 text-white text-xs font-bold backdrop-blur-sm shadow">
-                                <span>🎯</span>
+                              <div className="inline-flex self-start items-center px-2.5 py-1 rounded-lg bg-peach text-ink text-xs font-bold">
                                 <span>商品 {region.id}</span>
                               </div>
-                              <div className="text-center text-xs text-white font-bold bg-black/50 py-1 px-3 rounded-lg self-center backdrop-blur-sm">
+                              <div className="text-center text-xs text-cream font-bold bg-cocoa/70 py-1 px-3 rounded-lg self-center backdrop-blur-sm">
                                 請將商品置於框內
                               </div>
                             </div>
@@ -1582,8 +1458,8 @@ export default function ScanPage() {
                         })}
 
                         {/* 頂部引導指示牌 */}
-                        <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-slate-900/85 text-emerald-300 border border-emerald-500/30 px-4 py-1.5 rounded-full text-xs font-bold shadow-lg backdrop-blur-sm flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                        <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-cocoa/85 text-peach border-2 border-peach/40 px-4 py-1.5 rounded-full text-xs font-bold backdrop-blur-sm flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-peach animate-ping" />
                           <span>ROI {roiCount} 件模式：請將商品分別放入上方框內</span>
                         </div>
                       </div>
@@ -1598,21 +1474,7 @@ export default function ScanPage() {
                       developerMode && (
 
                         <div
-                          className="
-                            absolute
-                            top-4
-                            right-4
-                            z-50
-                            bg-amber-500
-                            text-white
-                            px-3
-                            py-1.5
-                            rounded-full
-                            text-xs
-                            font-bold
-                            shadow-lg
-                            pointer-events-none
-                          "
+                          className="absolute top-4 right-4 z-50 bg-peach border-2 border-ink text-ink px-3 py-1.5 rounded-full text-xs font-bold pointer-events-none"
                         >
 
                           ROI 微調模式 ({roiCount} 件)
@@ -1658,18 +1520,7 @@ export default function ScanPage() {
                           });
                           alert(`已將 ${roiCount} 件模式的框線恢復為預設位置！`);
                         }}
-                        className="
-                          px-6
-                          py-3
-                          rounded-xl
-                          bg-slate-100
-                          border
-                          border-slate-200
-                          text-slate-700
-                          font-bold
-                          hover:bg-slate-200
-                          transition-all
-                        "
+                        className="btn-ghost focus-ring h-12 px-6"
                       >
                         ↺ 重設為預設框線
                       </button>
@@ -1679,17 +1530,7 @@ export default function ScanPage() {
                         onClick={() => {
                           setDeveloperMode(false);
                         }}
-                        className="
-                          px-8
-                          py-3
-                          rounded-xl
-                          bg-emerald-600
-                          text-white
-                          font-bold
-                          shadow-sm
-                          hover:bg-emerald-700
-                          transition-all
-                        "
+                        className="btn-press focus-ring h-12 px-8 bg-forest text-paper text-lg"
                       >
                         ✓ 完成微調
                       </button>
@@ -1728,29 +1569,13 @@ export default function ScanPage() {
                           "SCANNING"
                         }
 
-                        className={`
-                          w-full
-                          py-4
-                          rounded-2xl
-                          text-lg
-                          md:text-xl
-                          font-black
-                          shadow-md
-                          transition-all
-
-                          ${
-                            scanPhase ===
-                            "SCANNING"
-
-                              ? "bg-slate-200 text-slate-400 cursor-not-allowed"
-
-                              : uploadedImagePreview
-
-                              ? "bg-sky-600 text-white hover:bg-sky-700"
-
-                              : "bg-indigo-600 text-white hover:bg-indigo-700 active:scale-[0.99]"
-                          }
-                        `}
+                        className={`btn-press focus-ring w-full h-16 text-2xl ${
+                          scanPhase === "SCANNING"
+                            ? "bg-sand text-ink"
+                            : uploadedImagePreview
+                            ? "bg-paper text-ink"
+                            : "bg-clay text-paper"
+                        }`}
                       >
 
                         {
@@ -1792,23 +1617,7 @@ export default function ScanPage() {
                             "SCANNING"
                           }
 
-                          className={`
-                            w-full
-                            py-3
-                            rounded-xl
-                            border
-                            font-bold
-                            transition-all
-
-                            ${
-                              scanPhase ===
-                              "SCANNING"
-
-                                ? "bg-slate-100 text-slate-400 border-slate-200"
-
-                                : "bg-white text-indigo-600 border-indigo-200 hover:bg-indigo-50"
-                            }
-                          `}
+                          className="btn-ghost focus-ring w-full h-12 text-[17px]"
                         >
 
                           從電腦匯入照片
@@ -1824,18 +1633,7 @@ export default function ScanPage() {
                             )
                           }
 
-                          className="
-                            w-full
-                            py-3
-                            rounded-xl
-                            bg-white
-                            border
-                            border-slate-200
-                            font-bold
-                            text-slate-600
-                            hover:bg-slate-50
-                            transition-all
-                          "
+                          className="btn-ghost focus-ring w-full h-12 text-[17px]"
                         >
 
                           手動選擇商品
@@ -1861,19 +1659,19 @@ export default function ScanPage() {
 
               <div className="flex-1 min-h-0 flex flex-col gap-3">
                 {/* 頂部辨識資訊與操作列 */}
-                <div className="flex items-center justify-between pb-3 border-b border-slate-200 shrink-0">
+                <div className="flex items-center justify-between pb-3 border-b-2 border-sand shrink-0">
                   <div className="flex items-center gap-3">
-                    <span className="text-lg font-bold text-slate-800">
+                    <span className="font-display text-xl text-ink">
                       辨識結果
                     </span>
                     {scanData?.total_objects_detected !== undefined && (
-                      <span className="px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold">
+                      <span className="chip bg-moss text-ink">
                         偵測到 {scanData.total_objects_detected} 件物品
                       </span>
                     )}
                     {scanData?.unrecognized_count > 0 && (
-                      <span className="px-3 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-xs font-bold">
-                        ⚠️ {scanData.unrecognized_count} 件未辨識
+                      <span className="chip bg-peach text-rust">
+                        {scanData.unrecognized_count} 件未辨識
                       </span>
                     )}
                   </div>
@@ -1886,16 +1684,16 @@ export default function ScanPage() {
                         setScanData(null);
                         setUploadedImagePreview(null);
                       }}
-                      className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold transition flex items-center gap-1.5 cursor-pointer"
+                      className="btn-ghost focus-ring h-11 px-4 text-sm"
                     >
-                      📷 重新拍照
+                      重新拍照
                     </button>
                     <button
                       type="button"
                       onClick={() => navigate("/products")}
-                      className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold transition flex items-center gap-1.5 cursor-pointer"
+                      className="btn-ghost focus-ring h-11 px-4 text-sm"
                     >
-                      📦 手動選擇商品
+                      手動選擇商品
                     </button>
                     <button
                       type="button"
@@ -1905,10 +1703,10 @@ export default function ScanPage() {
                         setScanPhase("IDLE");
                         setUploadedImagePreview(null);
                       }}
-                      className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-red-50 hover:text-red-600 text-slate-500 text-sm font-bold transition flex items-center gap-1 cursor-pointer"
+                      className="btn-ghost focus-ring h-11 px-4 text-sm hover:bg-peach hover:text-rust"
                       title="清空目前購物車並重新開始"
                     >
-                      🗑️ 清空
+                      清空
                     </button>
                   </div>
                 </div>
@@ -1917,15 +1715,15 @@ export default function ScanPage() {
                 <div
                   className="flex-1 overflow-y-scroll pr-3 min-h-0
                     [&::-webkit-scrollbar]:w-2
-                    [&::-webkit-scrollbar-track]:bg-slate-100
+                    [&::-webkit-scrollbar-track]:bg-wheat
                     [&::-webkit-scrollbar-track]:rounded-full
-                    [&::-webkit-scrollbar-thumb]:bg-slate-400
+                    [&::-webkit-scrollbar-thumb]:bg-sand
                     [&::-webkit-scrollbar-thumb]:rounded-full
-                    hover:[&::-webkit-scrollbar-thumb]:bg-slate-500"
+                    hover:[&::-webkit-scrollbar-thumb]:bg-clay"
                 >
                   {cart.length === 0 ? (
-                    <div className="h-64 flex flex-col items-center justify-center text-slate-400 gap-3">
-                      <span className="text-5xl">🛒</span>
+                    <div className="h-64 flex flex-col items-center justify-center text-ink/50 gap-3">
+                      <CartIcon size={56} />
                       <p className="text-base font-medium">購物車目前沒有商品</p>
                       <div className="flex gap-3 mt-2">
                         <button
@@ -1934,16 +1732,16 @@ export default function ScanPage() {
                             setScanPhase("IDLE");
                             setUploadedImagePreview(null);
                           }}
-                          className="px-5 py-2.5 rounded-xl bg-emerald-600 text-white font-bold text-sm hover:bg-emerald-500 shadow-md transition"
+                          className="btn-press focus-ring h-12 px-5 bg-forest text-paper text-lg"
                         >
-                          📷 重新拍照
+                          重新拍照
                         </button>
                         <button
                           type="button"
                           onClick={() => navigate("/products")}
-                          className="px-5 py-2.5 rounded-xl bg-slate-100 text-slate-700 font-bold text-sm hover:bg-slate-200 transition"
+                          className="btn-ghost focus-ring h-12 px-5"
                         >
-                          📦 手動選擇商品
+                          手動選擇商品
                         </button>
                       </div>
                     </div>
@@ -1953,9 +1751,9 @@ export default function ScanPage() {
                         <div
                           key={item.id ?? item.product_id ?? item.name}
                           data-testid={`cart-card-${item.name}`}
-                          className="w-44 flex-none bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col"
+                          className="w-44 flex-none bg-paper border-[3px] border-ink rounded-[22px] shadow-press overflow-hidden flex flex-col"
                         >
-                          <div className="w-full h-44 bg-slate-50 flex items-center justify-center p-3 shrink-0">
+                          <div className="w-full h-44 bg-wheat border-b-[3px] border-ink flex items-center justify-center p-3 shrink-0">
                             {item.image_url ? (
                               <img
                                 src={
@@ -1976,33 +1774,33 @@ export default function ScanPage() {
 
                           <div className="p-3 flex flex-col gap-1.5">
                             <div
-                              className="text-sm font-bold text-slate-800 truncate"
+                              className="text-base font-bold text-ink truncate"
                               title={item.name}
                             >
                               {item.name}
                             </div>
-                            <div className="text-base font-bold text-emerald-700">
-                              ${item.price}
+                            <div className="font-display text-[22px] text-rust">
+                              NT${item.price}
                             </div>
 
-                            <div className="flex items-center gap-1.5 mt-1">
+                            <div className="self-start flex items-center gap-1.5 mt-1 bg-wheat rounded-full p-1">
                               <button
                                 type="button"
                                 data-testid={`btn-dec-${item.name}`}
                                 onClick={() => decreaseQty(item.id ?? item.product_id)}
-                                className="w-8 h-8 rounded-lg bg-slate-100 text-slate-700 text-base font-bold hover:bg-slate-200 active:scale-95 transition flex items-center justify-center cursor-pointer select-none"
+                                className="focus-ring w-[34px] h-[34px] rounded-full bg-paper text-xl font-bold flex items-center justify-center active:scale-95 transition cursor-pointer select-none"
                                 aria-label="減少數量"
                               >
-                                -
+                                −
                               </button>
-                              <span className="w-6 text-center text-base font-bold text-slate-800 select-none">
+                              <span className="min-w-6 text-center text-lg font-bold text-ink select-none">
                                 {item.quantity}
                               </span>
                               <button
                                 type="button"
                                 data-testid={`btn-inc-${item.name}`}
                                 onClick={() => increaseQty(item.id ?? item.product_id)}
-                                className="w-8 h-8 rounded-lg bg-slate-100 text-slate-700 text-base font-bold hover:bg-slate-200 active:scale-95 transition flex items-center justify-center cursor-pointer select-none"
+                                className="focus-ring w-[34px] h-[34px] rounded-full bg-paper text-xl font-bold flex items-center justify-center active:scale-95 transition cursor-pointer select-none"
                                 aria-label="增加數量"
                               >
                                 +
@@ -2049,176 +1847,20 @@ export default function ScanPage() {
             底部購物車
         ==================================================== */}
 
-        <div
-          className="
-            shrink-0
-            bg-white
-            rounded-2xl
-            border
-            border-slate-200
-            shadow-sm
-            px-5
-            py-3
-            flex
-            items-center
-            justify-between
-            gap-4
-          "
-        >
-
-          <div
-            className="
-              flex
-              items-center
-              gap-4
-            "
-          >
-
-            {/* Icon */}
-
-            <div
-              className="
-                relative
-                w-12
-                h-12
-                bg-slate-100
-                rounded-xl
-                flex
-                items-center
-                justify-center
-                text-2xl
-              "
-            >
-
-              🛒
-
-
-              {
-                cart.length > 0 && (
-
-                  <span
-                    className="
-                      absolute
-                      -top-2
-                      -right-2
-                      w-6
-                      h-6
-                      rounded-full
-                      bg-red-500
-                      border-2
-                      border-white
-                      text-white
-                      text-xs
-                      font-bold
-                      flex
-                      items-center
-                      justify-center
-                    "
-                  >
-
-                    {
-                      cart.length
-                    }
-
-                  </span>
-
-                )
-              }
-
-            </div>
-
-
-            {/* 購物車資訊 */}
-
-            <div>
-
-              <div
-                className="
-                  text-xs
-                  text-slate-400
-                "
-              >
-
-                購物車
-
-                <span
-                  className="
-                    ml-2
-                    text-slate-500
-                  "
-                >
-
-                  {
-                    cart.length
-                  }
-
-                  {" "}件商品
-
-                </span>
-
-              </div>
-
-
-              <div
-                className="
-                  flex
-                  items-baseline
-                  gap-2
-                "
-              >
-
-                <span
-                  className="
-                    text-xs
-                    text-slate-400
-                  "
-                >
-
-                  總計
-
-                </span>
-
-
-                <span
-                  className="
-                    text-2xl
-                    font-black
-                    text-slate-800
-                  "
-                >
-
-                  $
-                  {
-                    totalAmount
-                  }
-
-                </span>
-
-              </div>
-
-            </div>
-
-          </div>
-
+        <div className="panel shrink-0 flex items-center gap-4 py-3.5 pr-4 pl-7">
+          <CartIcon />
+          <span className="text-[17px]">購物車</span>
+          <span className="font-display text-[30px]">
+            {cart.length} 項 · NT${totalAmount}
+          </span>
 
           {/* 右側按鈕群 */}
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="ml-auto flex items-center gap-3 shrink-0">
             <button
               type="button"
               onClick={() => navigate("/cart")}
               disabled={cart.length === 0}
-              className={`
-                px-5
-                py-3
-                rounded-xl
-                font-bold
-                transition-all
-                ${
-                  cart.length > 0
-                    ? "bg-sky-600 text-white shadow-sm hover:bg-sky-500 active:scale-95 cursor-pointer"
-                    : "bg-slate-100 text-slate-400 cursor-not-allowed"
-                }
-              `}
+              className="btn-ghost focus-ring h-16 px-6 text-xl"
             >
               查看清單
             </button>
@@ -2226,24 +1868,11 @@ export default function ScanPage() {
               type="button"
               onClick={() => navigate("/payment")}
               disabled={cart.length === 0}
-              className={`
-                px-6
-                py-3
-                rounded-2xl
-                font-bold
-                text-base
-                transition-all
-                ${
-                  cart.length > 0
-                    ? "bg-emerald-600 text-white shadow-lg hover:bg-emerald-500 active:scale-95 cursor-pointer"
-                    : "bg-slate-100 text-slate-400 cursor-not-allowed"
-                }
-              `}
+              className="btn-press focus-ring h-16 px-[34px] bg-clay text-paper text-[26px]"
             >
-              前往結帳 ➔
+              前往結帳
             </button>
           </div>
-
         </div>
 
       </div>

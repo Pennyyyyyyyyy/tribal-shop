@@ -399,8 +399,8 @@ export default function RoiEditor({
               className="
                 absolute
                 border-2
-                border-cyan-400
-                bg-cyan-400/10
+                border-peach
+                bg-peach/15
                 cursor-move
               "
 
@@ -437,8 +437,8 @@ export default function RoiEditor({
                   absolute
                   top-2
                   left-2
-                  bg-cyan-500
-                  text-white
+                  bg-peach
+                  text-ink
                   px-2
                   py-1
                   rounded-lg
@@ -463,9 +463,9 @@ export default function RoiEditor({
                   -top-2
                   w-5
                   h-5
-                  bg-white
+                  bg-paper
                   border-2
-                  border-cyan-500
+                  border-ink
                   rounded-full
                   cursor-nwse-resize
                   z-40
@@ -491,9 +491,9 @@ export default function RoiEditor({
                   -top-2
                   w-5
                   h-5
-                  bg-white
+                  bg-paper
                   border-2
-                  border-cyan-500
+                  border-ink
                   rounded-full
                   cursor-nesw-resize
                   z-40
@@ -519,9 +519,9 @@ export default function RoiEditor({
                   -bottom-2
                   w-5
                   h-5
-                  bg-white
+                  bg-paper
                   border-2
-                  border-cyan-500
+                  border-ink
                   rounded-full
                   cursor-nesw-resize
                   z-40
@@ -547,9 +547,9 @@ export default function RoiEditor({
                   -bottom-2
                   w-5
                   h-5
-                  bg-white
+                  bg-paper
                   border-2
-                  border-cyan-500
+                  border-ink
                   rounded-full
                   cursor-nwse-resize
                   z-40

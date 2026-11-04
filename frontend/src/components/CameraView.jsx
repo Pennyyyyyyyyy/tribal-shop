@@ -112,8 +112,8 @@ function CameraView({
         bare
           ? "relative w-full h-full overflow-hidden"
           : fill
-          ? "relative w-full h-full bg-black rounded-3xl shadow-2xl overflow-hidden border-4 border-slate-800"
-          : "relative w-full max-w-xl aspect-video bg-black rounded-3xl shadow-2xl overflow-hidden border-4 border-slate-800"
+          ? "relative w-full h-full bg-cocoa overflow-hidden"
+          : "relative w-full max-w-xl aspect-video bg-cocoa rounded-[22px] overflow-hidden border-[3px] border-ink"
       }
     >
       <video
@@ -126,19 +126,19 @@ function CameraView({
 
       {!bare && (
         <>
-          <div className="absolute top-4 left-4 text-xs font-mono text-green-300 bg-black/60 px-3 py-1 rounded-full">
+          <div className="absolute top-4 left-4 text-xs font-mono text-moss bg-cocoa/70 px-3 py-1 rounded-full">
             {label}
           </div>
 
-          <div className="absolute top-4 right-4 flex items-center gap-2 bg-black/60 px-4 py-2 rounded-full">
+          <div className="absolute top-4 right-4 flex items-center gap-2 bg-cocoa/70 px-4 py-2 rounded-full">
             <div
               className={`w-3 h-3 rounded-full ${
                 status === "REC" || status === "SCANNING"
-                  ? "bg-red-500 animate-pulse"
-                  : "bg-slate-300"
+                  ? "bg-peach animate-pulse"
+                  : "bg-sand"
               }`}
             />
-            <span className="text-xs text-white tracking-widest font-semibold">
+            <span className="text-xs text-cream tracking-widest font-semibold">
               {status}
             </span>
           </div>
@@ -146,16 +146,14 @@ function CameraView({
       )}
 
       {!ready && !error && (
-        <div className={`absolute inset-0 flex flex-col items-center justify-center ${bare ? "bg-cocoa text-cream" : "bg-black/60 text-slate-100"}`}>
-          {!bare && <div className="text-5xl mb-2">📷</div>}
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-cocoa text-cream">
           <div className="text-lg mb-1">正在啟動相機...</div>
         </div>
       )}
 
       {error && (
-        <div className={`absolute inset-0 flex flex-col items-center justify-center text-center px-4 ${bare ? "bg-cocoa text-peach" : "bg-black/70 text-red-200"}`}>
-          {!bare && <div className="text-4xl mb-2">⚠️</div>}
-          <div className={`${bare ? "text-lg" : "text-sm"} whitespace-pre-line`}>{error}</div>
+        <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-4 bg-cocoa text-peach">
+          <div className="text-lg whitespace-pre-line">{error}</div>
         </div>
       )}
 
