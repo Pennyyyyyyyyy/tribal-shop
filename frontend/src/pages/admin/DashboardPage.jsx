@@ -1,10 +1,11 @@
-import React from "react";
+import React, { useState } from "react";
 import { Link } from "react-router-dom";
-import { useDashboardData } from "../../hooks/useDashboardData";
-import { ErrorBox } from "../../components/admin/adminShared";
+import { useDashboardData, LOW_STOCK_THRESHOLD } from "../../hooks/useDashboardData";
+import { ErrorBox, StockModal } from "../../components/admin/adminShared";
 
 export default function DashboardPage() {
-    const { data, debtors, lowStock, error } = useDashboardData();
+    const { data, debtors, lowStock, error, reload } = useDashboardData();
+    const [editing, setEditing] = useState(null);
 
     if (error) return <ErrorBox message={error} />;
     if (!data) return <div className="text-base opacity-70">載入中…</div>;
@@ -36,7 +37,7 @@ export default function DashboardPage() {
                     warn={data.outstanding_debt > 0}
                 />
                 <KpiCard
-                    label="即將補貨（庫存 ≤ 5）"
+                    label={`即將補貨（庫存 ≤ ${LOW_STOCK_THRESHOLD}）`}
                     value={`${lowStock.length}`}
                     suffix="項"
                     warn={lowStock.length > 0}
@@ -58,7 +59,7 @@ export default function DashboardPage() {
                             <div className="overflow-x-auto">
                                 <table className="data-table">
                                     <thead>
-                                        <tr><th>族人</th><th className="text-right">欠款</th></tr>
+                                        <tr><th>居民</th><th className="text-right">欠款</th></tr>
                                     </thead>
                                     <tbody>
                                         {debtors.map(m => (
@@ -96,7 +97,13 @@ export default function DashboardPage() {
                     ) : (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             {lowStock.map(p => (
-                                <div key={p.id} className="flex items-center gap-3 bg-cream rounded-[14px] py-2 pr-3.5 pl-2 min-w-0">
+                                <button
+                                    key={p.id}
+                                    type="button"
+                                    onClick={() => setEditing(p)}
+                                    aria-label={`修改「${p.name}」庫存，目前剩 ${p.stock}`}
+                                    className="focus-ring flex items-center gap-3 bg-cream rounded-[14px] py-2 pr-3.5 pl-2 min-w-0 text-left cursor-pointer hover:bg-wheat transition-colors"
+                                >
                                     {p.image_url ? (
                                         <img src={p.image_url} alt="" className="w-11 h-11 object-cover rounded-[10px] bg-paper" />
                                     ) : (
@@ -106,13 +113,31 @@ export default function DashboardPage() {
                                     <span className={`shrink-0 font-bold tabular-nums ${p.stock <= 2 ? "text-clay" : "text-rust"}`}>
                                         剩 {p.stock}
                                     </span>
-                                </div>
+                                    <PencilIcon />
+                                </button>
                             ))}
                         </div>
                     )}
                 </section>
             </div>
+
+            {editing && (
+                <StockModal
+                    product={editing}
+                    onClose={() => setEditing(null)}
+                    onSaved={() => { setEditing(null); reload(); }}
+                />
+            )}
         </div>
+    );
+}
+
+function PencilIcon() {
+    return (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="shrink-0 opacity-60">
+            <path d="M4 20h4L19 9l-4-4L4 16v4z" />
+            <path d="M14 6l4 4" />
+        </svg>
     );
 }
 

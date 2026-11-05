@@ -1,11 +1,12 @@
-import React from "react";
+import React, { useState } from "react";
 import { Link } from "react-router-dom";
-import { useDashboardData } from "../../../hooks/useDashboardData";
-import { ErrorBox } from "../../../components/admin/adminShared";
+import { useDashboardData, LOW_STOCK_THRESHOLD } from "../../../hooks/useDashboardData";
+import { ErrorBox, StockModal } from "../../../components/admin/adminShared";
 import { Loading } from "../../../components/admin/mobile/mobileShared";
 
 export default function DashboardMobile() {
-    const { data, debtors, lowStock, error } = useDashboardData();
+    const { data, debtors, lowStock, error, reload } = useDashboardData();
+    const [editing, setEditing] = useState(null);
 
     if (error) return <ErrorBox message={error} />;
     if (!data) return <Loading />;
@@ -23,7 +24,7 @@ export default function DashboardMobile() {
                 <Kpi label="今日營收" value={`NT$${(data.today_revenue || 0).toLocaleString()}`} valueClass="text-forest" />
                 <Kpi label="今日筆數" value={`${data.today_transaction_count || 0}`} suffix="筆" />
                 <Kpi label="未收欠款" value={`NT$${(data.outstanding_debt || 0).toLocaleString()}`} warn={data.outstanding_debt > 0} />
-                <Kpi label="即將補貨（≤ 5）" value={`${lowStock.length}`} suffix="項" warn={lowStock.length > 0} />
+                <Kpi label={`即將補貨（≤ ${LOW_STOCK_THRESHOLD}）`} value={`${lowStock.length}`} suffix="項" warn={lowStock.length > 0} />
             </div>
 
             <section className="panel px-3.5 pt-4 pb-1.5">
@@ -57,7 +58,13 @@ export default function DashboardMobile() {
                 {lowStock.length === 0 ? (
                     <div className="py-6 text-center text-base opacity-60">庫存都還算足夠</div>
                 ) : lowStock.map(p => (
-                    <div key={p.id} className="flex items-center gap-3 bg-cream rounded-[14px] py-2 pr-3.5 pl-2">
+                    <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => setEditing(p)}
+                        aria-label={`修改「${p.name}」庫存，目前剩 ${p.stock}`}
+                        className="focus-ring flex items-center gap-3 bg-cream rounded-[14px] py-2 pr-3.5 pl-2 min-h-[44px] text-left active:bg-wheat"
+                    >
                         {p.image_url ? (
                             <img src={p.image_url} alt="" className="w-11 h-11 object-cover rounded-[10px] bg-paper" />
                         ) : (
@@ -65,9 +72,18 @@ export default function DashboardMobile() {
                         )}
                         <span className="flex-1 min-w-0 truncate font-bold">{p.name}</span>
                         <span className={`shrink-0 font-bold tabular-nums ${p.stock <= 2 ? "text-clay" : "text-rust"}`}>剩 {p.stock}</span>
-                    </div>
+                        <span aria-hidden="true" className="shrink-0 text-lg opacity-50">›</span>
+                    </button>
                 ))}
             </section>
+
+            {editing && (
+                <StockModal
+                    product={editing}
+                    onClose={() => setEditing(null)}
+                    onSaved={() => { setEditing(null); reload(); }}
+                />
+            )}
         </div>
     );
 }
