@@ -173,12 +173,12 @@ export default function CartPage() {
         <div className="px-2 text-base leading-[1.7]">
           {isTribalMember ? (
             <>
-              <div className="font-bold mb-1.5">結帳後還有一步</div>
+              <div className="font-bold mb-1.5">結帳前還有一步</div>
               <div>拍照存證：拍下您的臉，店長確認後記入賒帳</div>
             </>
           ) : (
             <>
-              <div className="font-bold mb-1.5">結帳後還有兩步</div>
+              <div className="font-bold mb-1.5">結帳完成前還有兩步</div>
               <div>1. 拍照存證：拍下您的臉</div>
               <div>2. 投幣付款：投入硬幣或紙鈔</div>
             </>
