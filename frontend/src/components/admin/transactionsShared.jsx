@@ -1,7 +1,7 @@
 // 交易頁共用：類型標籤、明細彈窗、指認居民彈窗（電腦版與手機版都用）
 import React, { useEffect, useState } from "react";
 import * as api from "../../service/adminApi";
-import { formatDateTime, safeParseItems } from "../../utils/adminFormat";
+import { displayIdentity, formatDateTime, safeParseItems } from "../../utils/adminFormat";
 
 export function TypePill({ type }) {
     if (type === "credit") {
@@ -26,7 +26,7 @@ export function TransactionModal({ tx, onClose }) {
                     <div className="flex items-start justify-between pb-3 border-b-2 border-dashed border-sand">
                         <div>
                             <div className="text-sm opacity-70">交易 #{tx.id}</div>
-                            <h3 className="font-display text-[26px] mt-0.5">{tx.identity || "—"}</h3>
+                            <h3 className="font-display text-[26px] mt-0.5">{displayIdentity(tx.identity)}</h3>
                             <div className="text-sm mt-1 tabular-nums">{formatDateTime(tx.created_at)}</div>
                         </div>
                         <div className="text-right">

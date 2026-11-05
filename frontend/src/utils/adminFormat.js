@@ -1,6 +1,13 @@
 // 後台共用的小工具（電腦版與手機版都用）。放在 .js 檔，避免和元件混在一起影響 Fast Refresh。
 
-export const PENDING_DEBTOR = "待確認居民";
+// 資料庫（Worker 寫入 transaction.identity）的原始值，比對時一定要用這個，不能改字
+export const PENDING_DEBTOR = "待確認族人";
+
+// 畫面上顯示交易身份：資料庫的「待確認族人」顯示成「待確認居民」
+export function displayIdentity(identity) {
+    if (!identity) return "—";
+    return identity === PENDING_DEBTOR ? "待確認居民" : identity;
+}
 
 // 台灣時區 YYYY-MM-DD（daysOffset 可傳負值代表往前推）
 export function taipeiDate(daysOffset = 0) {

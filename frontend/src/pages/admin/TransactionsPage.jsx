@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { PENDING_DEBTOR, formatDateTime } from "../../utils/adminFormat";
+import { PENDING_DEBTOR, displayIdentity, formatDateTime } from "../../utils/adminFormat";
 import { useTransactions } from "../../hooks/useTransactions";
 import { TypePill, TransactionModal, AssignDebtorModal } from "../../components/admin/transactionsShared";
 
@@ -83,7 +83,7 @@ export default function TransactionsPage() {
                                         <tr key={tx.id} className={pending ? "bg-peach/40" : "hover:bg-cream transition-colors"}>
                                             <td className="tabular-nums">{formatDateTime(tx.created_at)}</td>
                                             <td><TypePill type={tx.type} /></td>
-                                            <td className="font-bold">{tx.identity || "—"}</td>
+                                            <td className="font-bold">{displayIdentity(tx.identity)}</td>
                                             <td className="text-right tabular-nums font-display text-xl">
                                                 NT${(tx.total || 0).toLocaleString()}
                                             </td>

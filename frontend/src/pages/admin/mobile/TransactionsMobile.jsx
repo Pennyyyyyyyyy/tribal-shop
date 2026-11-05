@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useTransactions } from "../../../hooks/useTransactions";
-import { PENDING_DEBTOR, formatDateTime, safeParseItems } from "../../../utils/adminFormat";
+import { PENDING_DEBTOR, displayIdentity, formatDateTime, safeParseItems } from "../../../utils/adminFormat";
 import { TypePill, TransactionModal, AssignDebtorModal } from "../../../components/admin/transactionsShared";
 import { PageHeader, Card, PillRow, Pill, Loading, Empty } from "../../../components/admin/mobile/mobileShared";
 
@@ -104,7 +104,7 @@ function TxSummary({ tx, nameClass = "" }) {
         <>
             <span className="font-display text-[15px] tabular-nums whitespace-nowrap shrink-0">{formatDateTime(tx.created_at)}</span>
             <TypePill type={tx.type} />
-            <span className={`flex-1 min-w-0 truncate font-bold text-[15px] ${nameClass}`}>{tx.identity || "—"}</span>
+            <span className={`flex-1 min-w-0 truncate font-bold text-[15px] ${nameClass}`}>{displayIdentity(tx.identity)}</span>
             <span className="font-display text-lg tabular-nums shrink-0">NT${(tx.total || 0).toLocaleString()}</span>
         </>
     );
