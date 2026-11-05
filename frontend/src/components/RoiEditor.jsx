@@ -52,6 +52,11 @@ export default function RoiEditor({
       return;
     }
 
+    // 鎖定這根手指 / 滑鼠，拖出框外也繼續收到移動事件
+    containerRef.current.setPointerCapture?.(
+      event.pointerId
+    );
+
     const rect =
       containerRef.current
         .getBoundingClientRect();
@@ -354,17 +359,18 @@ export default function RoiEditor({
         inset-0
         z-30
         select-none
+        touch-none
       "
 
-      onMouseMove={
+      onPointerMove={
         handleMouseMove
       }
 
-      onMouseUp={
+      onPointerUp={
         stopAction
       }
 
-      onMouseLeave={
+      onPointerCancel={
         stopAction
       }
     >
@@ -420,7 +426,7 @@ export default function RoiEditor({
 
               }}
 
-              onMouseDown={
+              onPointerDown={
                 (event) =>
                   startAction(
                     event,
@@ -459,19 +465,18 @@ export default function RoiEditor({
               <div
                 className="
                   absolute
-                  -left-2
-                  -top-2
-                  w-5
-                  h-5
-                  bg-paper
-                  border-2
-                  border-ink
-                  rounded-full
+                  -left-[22px]
+                  -top-[22px]
+                  w-11
+                  h-11
+                  flex
+                  items-center
+                  justify-center
                   cursor-nwse-resize
                   z-40
                 "
 
-                onMouseDown={
+                onPointerDown={
                   (event) =>
                     startAction(
                       event,
@@ -479,7 +484,9 @@ export default function RoiEditor({
                       "tl"
                     )
                 }
-              />
+              >
+                <span className="w-[22px] h-[22px] bg-paper border-2 border-ink rounded-full pointer-events-none" />
+              </div>
 
 
               {/* 右上 */}
@@ -487,19 +494,18 @@ export default function RoiEditor({
               <div
                 className="
                   absolute
-                  -right-2
-                  -top-2
-                  w-5
-                  h-5
-                  bg-paper
-                  border-2
-                  border-ink
-                  rounded-full
+                  -right-[22px]
+                  -top-[22px]
+                  w-11
+                  h-11
+                  flex
+                  items-center
+                  justify-center
                   cursor-nesw-resize
                   z-40
                 "
 
-                onMouseDown={
+                onPointerDown={
                   (event) =>
                     startAction(
                       event,
@@ -507,7 +513,9 @@ export default function RoiEditor({
                       "tr"
                     )
                 }
-              />
+              >
+                <span className="w-[22px] h-[22px] bg-paper border-2 border-ink rounded-full pointer-events-none" />
+              </div>
 
 
               {/* 左下 */}
@@ -515,19 +523,18 @@ export default function RoiEditor({
               <div
                 className="
                   absolute
-                  -left-2
-                  -bottom-2
-                  w-5
-                  h-5
-                  bg-paper
-                  border-2
-                  border-ink
-                  rounded-full
+                  -left-[22px]
+                  -bottom-[22px]
+                  w-11
+                  h-11
+                  flex
+                  items-center
+                  justify-center
                   cursor-nesw-resize
                   z-40
                 "
 
-                onMouseDown={
+                onPointerDown={
                   (event) =>
                     startAction(
                       event,
@@ -535,7 +542,9 @@ export default function RoiEditor({
                       "bl"
                     )
                 }
-              />
+              >
+                <span className="w-[22px] h-[22px] bg-paper border-2 border-ink rounded-full pointer-events-none" />
+              </div>
 
 
               {/* 右下 */}
@@ -543,19 +552,18 @@ export default function RoiEditor({
               <div
                 className="
                   absolute
-                  -right-2
-                  -bottom-2
-                  w-5
-                  h-5
-                  bg-paper
-                  border-2
-                  border-ink
-                  rounded-full
+                  -right-[22px]
+                  -bottom-[22px]
+                  w-11
+                  h-11
+                  flex
+                  items-center
+                  justify-center
                   cursor-nwse-resize
                   z-40
                 "
 
-                onMouseDown={
+                onPointerDown={
                   (event) =>
                     startAction(
                       event,
@@ -563,7 +571,9 @@ export default function RoiEditor({
                       "br"
                     )
                 }
-              />
+              >
+                <span className="w-[22px] h-[22px] bg-paper border-2 border-ink rounded-full pointer-events-none" />
+              </div>
 
             </div>
           );
