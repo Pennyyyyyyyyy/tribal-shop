@@ -1,4 +1,4 @@
-// 族人頁共用：還款表單、編輯暱稱、新增族人（電腦版與手機版都用）
+// 居民頁共用：還款表單、編輯暱稱、新增居民（電腦版與手機版都用）
 import React, { useState } from "react";
 import * as api from "../../service/adminApi";
 import { ModalShell, ErrorLine, FooterButtons } from "./adminShared";
@@ -95,7 +95,7 @@ export function EditNicknameModal({ member, onClose, onDone }) {
         <ModalShell onClose={onClose}>
             <form onSubmit={submit}>
                 <h3 className="font-display text-[26px] pb-3 border-b-2 border-dashed border-sand">
-                    編輯族人
+                    編輯居民
                 </h3>
 
                 <label className="block mt-5">
@@ -148,7 +148,7 @@ export function CreateMemberModal({ onClose, onDone }) {
         <ModalShell onClose={onClose}>
             <form onSubmit={submit}>
                 <h3 className="font-display text-[26px] pb-3 border-b-2 border-dashed border-sand">
-                    新增族人
+                    新增居民
                 </h3>
 
                 <label className="block mt-5">
@@ -163,7 +163,7 @@ export function CreateMemberModal({ onClose, onDone }) {
                 </label>
 
                 <p className="mt-2 text-sm opacity-75">
-                    新族人預設欠款 0。之後如加入 LINE Bot，會沿用同一筆紀錄。
+                    新居民預設欠款 0。之後如加入 LINE Bot，會沿用同一筆紀錄。
                 </p>
 
                 {error && <ErrorLine>{error}</ErrorLine>}

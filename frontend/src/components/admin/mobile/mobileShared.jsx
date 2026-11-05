@@ -56,7 +56,7 @@ export function Empty({ children }) {
     return <div className="py-10 text-center text-base opacity-70">{children}</div>;
 }
 
-// 右上角的主要行動按鈕（新增商品 / 新增族人）
+// 右上角的主要行動按鈕（新增商品 / 新增居民）
 export function HeaderButton({ onClick, children }) {
     return (
         <button

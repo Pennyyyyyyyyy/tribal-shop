@@ -19,7 +19,7 @@ export default function PayoutsPage() {
             <div>
                 <h1 className="font-display text-[38px]">分潤結算</h1>
                 <p className="text-[15px] mt-1">
-                    店家抽成 30%，族人拿 70%。試算會依實際交易明細計算；產生後為「待付」狀態。
+                    店家抽成 30%，居民拿 70%。試算會依實際交易明細計算；產生後為「待付」狀態。
                 </p>
             </div>
 
@@ -31,7 +31,7 @@ export default function PayoutsPage() {
                     批次試算並產生結算
                 </h2>
                 <p className="text-[15px] mt-3">
-                    選期間 → 一次試算所有寄賣族人 → 勾選要建立的、按產生。
+                    選期間 → 一次試算所有寄賣居民 → 勾選要建立的、按產生。
                     <span className="opacity-60 ml-1">（不會擋跟「待付」結算重疊 — 產生前請先看下方歷史清單）</span>
                 </p>
 
@@ -72,13 +72,13 @@ export default function PayoutsPage() {
                         {/* 選取工具列 */}
                         <div className="flex items-center flex-wrap gap-2.5 text-[15px]">
                             <div className="mr-auto">
-                                共 {previews.length} 位族人 · 有銷售 <b className="tabular-nums">{previews.filter(p => p.gross_amount > 0).length}</b> 位 · 已選 <b className="tabular-nums text-forest">{selected.size}</b> 位
+                                共 {previews.length} 位居民 · 有銷售 <b className="tabular-nums">{previews.filter(p => p.gross_amount > 0).length}</b> 位 · 已選 <b className="tabular-nums text-forest">{selected.size}</b> 位
                             </div>
                             <button onClick={selectAllWithSales} className="focus-ring pill h-9 text-sm hover:border-clay">全選有銷售</button>
                             <button onClick={clearSelection} className="focus-ring pill h-9 text-sm hover:border-clay">全部取消</button>
                         </div>
 
-                        {/* 族人卡片列表 */}
+                        {/* 居民卡片列表 */}
                         <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4 items-start">
                             {previews.map(p => (
                                 <ConsignorPreviewCard
@@ -128,7 +128,7 @@ export default function PayoutsPage() {
                             }}
                             className="focus-ring h-10 px-3 rounded-xl border-2 border-sand bg-paper text-[15px] font-bold"
                         >
-                            <option value="">所有族人</option>
+                            <option value="">所有居民</option>
                             {consignorList.map(c => (
                                 <option key={c.line_id} value={c.line_id}>{c.nickname}</option>
                             ))}

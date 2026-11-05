@@ -92,7 +92,7 @@ export default function PayoutsMobile() {
                     }}
                     className={SELECT}
                 >
-                    <option value="">所有族人</option>
+                    <option value="">所有居民</option>
                     {consignorList.map(c => <option key={c.line_id} value={c.line_id}>{c.nickname}</option>)}
                 </select>
                 <select

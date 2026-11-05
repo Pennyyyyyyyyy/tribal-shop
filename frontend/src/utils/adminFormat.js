@@ -1,6 +1,6 @@
 // 後台共用的小工具（電腦版與手機版都用）。放在 .js 檔，避免和元件混在一起影響 Fast Refresh。
 
-export const PENDING_DEBTOR = "待確認族人";
+export const PENDING_DEBTOR = "待確認居民";
 
 // 台灣時區 YYYY-MM-DD（daysOffset 可傳負值代表往前推）
 export function taipeiDate(daysOffset = 0) {

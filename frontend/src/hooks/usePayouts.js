@@ -42,7 +42,7 @@ export function usePayouts() {
     const defaults = useMemo(defaultLastMonthRange, []);
     const [form, setForm] = useState({ from: defaults.from, to: defaults.to });
 
-    // 批次試算：previews = 每位族人一筆 preview 結果（含 gross=0 者）。
+    // 批次試算：previews = 每位居民一筆 preview 結果（含 gross=0 者）。
     // selected = 勾選要建立結算單的 line_id 集合。expanded = 展開明細的 line_id 集合。
     const [previews, setPreviews] = useState(null);
     const [previewErr, setPreviewErr] = useState(null);
@@ -104,7 +104,7 @@ export function usePayouts() {
         return c?.nickname || lineId;
     };
 
-    // 批次試算：對每位族人平行呼叫 preview API。族人數少（<20）時 5xx ms 就完成。
+    // 批次試算：對每位居民平行呼叫 preview API。居民數少（<20）時 5xx ms 就完成。
     async function runBatchPreview() {
         if (!form.from || !form.to || consignorList.length === 0) return;
         setPreviewing(true);
@@ -117,7 +117,7 @@ export function usePayouts() {
                 )
             );
             setPreviews(results);
-            // 預設勾選所有「有銷售」的族人，gross=0 者不勾也 disable 掉。
+            // 預設勾選所有「有銷售」的居民，gross=0 者不勾也 disable 掉。
             const auto = new Set(results.filter(r => r.gross_amount > 0).map(r => r.consignor.line_id));
             setSelected(auto);
             setExpanded(new Set()); // 預設全部收合
@@ -184,7 +184,7 @@ export function usePayouts() {
         await loadPayouts();
     }
 
-    // 合計試算：所有已勾選族人的 net_payout 加總
+    // 合計試算：所有已勾選居民的 net_payout 加總
     const totalSelectedNet = useMemo(() => {
         if (!previews) return 0;
         return previews
@@ -193,16 +193,16 @@ export function usePayouts() {
     }, [previews, selected]);
 
     async function markAsPaid(id) {
-        if (!confirm("確認已把款項交給族人？此動作不可還原（已付結算無法刪除）。")) return;
+        if (!confirm("確認已把款項交給居民？此動作不可還原（已付結算無法刪除）。")) return;
         setRowBusyId(id);
         try {
             const r = await api.payouts.markPaid(id);
             if (r.notified) {
-                setNotice({ type: "green", text: "已標記付款並通知族人" });
+                setNotice({ type: "green", text: "已標記付款並通知居民" });
             } else {
                 setNotice({
                     type: "amber",
-                    text: "已標記付款，但 LINE 通知失敗（族人 line_id 可能是測試值或已停用）",
+                    text: "已標記付款，但 LINE 通知失敗（居民 line_id 可能是測試值或已停用）",
                 });
             }
             await loadPayouts();
@@ -232,7 +232,7 @@ export function usePayouts() {
     }
 
     async function unmarkAsPaid(id) {
-        if (!confirm(`把結算單 #${id} 改回「待付」？\n\npaid_at 會被清除。族人不會收到 LINE 通知（撤銷是內部作業）。`)) return;
+        if (!confirm(`把結算單 #${id} 改回「待付」？\n\npaid_at 會被清除。居民不會收到 LINE 通知（撤銷是內部作業）。`)) return;
         setRowBusyId(id);
         try {
             await api.payouts.unmarkPaid(id);

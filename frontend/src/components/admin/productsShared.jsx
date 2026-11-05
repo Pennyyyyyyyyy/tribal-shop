@@ -206,13 +206,13 @@ export function ProductModal({ product, consignors = [], onClose, onSaved, onDel
                         </label>
                         {form.consignor_line_id && (
                             <div className="mt-3 pl-6">
-                                <span className="text-sm font-bold mb-1.5 block">寄賣族人</span>
+                                <span className="text-sm font-bold mb-1.5 block">寄賣居民</span>
                                 <select
                                     value={form.consignor_line_id}
                                     onChange={e => setForm({ ...form, consignor_line_id: e.target.value })}
                                     className="field h-12 text-base"
                                 >
-                                    {consignors.length === 0 && <option value="">（尚無寄賣族人 — 請先請對方加 LINE bot 或在 SQL 建）</option>}
+                                    {consignors.length === 0 && <option value="">（尚無寄賣居民 — 請先請對方加 LINE bot 或在 SQL 建）</option>}
                                     {consignors.map(c => (
                                         <option key={c.line_id} value={c.line_id}>{c.nickname}（{c.line_id}）</option>
                                     ))}

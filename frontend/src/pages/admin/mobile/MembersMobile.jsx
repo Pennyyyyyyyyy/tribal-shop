@@ -30,9 +30,9 @@ export default function MembersMobile() {
     return (
         <div className="flex flex-col gap-3.5">
             <PageHeader
-                title="族人管理"
+                title="居民管理"
                 subtitle="按未還款金額排序"
-                action={<HeaderButton onClick={() => setCreating(true)}>新增族人</HeaderButton>}
+                action={<HeaderButton onClick={() => setCreating(true)}>新增居民</HeaderButton>}
             />
 
             {error && (
@@ -40,7 +40,7 @@ export default function MembersMobile() {
             )}
 
             {loading ? <Loading /> : items.length === 0 ? (
-                <Empty>還沒有族人資料，點右上「新增族人」開始</Empty>
+                <Empty>還沒有居民資料，點右上「新增居民」開始</Empty>
             ) : items.map(m => {
                 const debt = m.total_debt || 0;
                 const open = repaying?.id === m.id;

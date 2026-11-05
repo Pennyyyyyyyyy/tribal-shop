@@ -60,7 +60,7 @@ export default function TransactionsMobile() {
                     <span>賒帳 NT${totals.credit.toLocaleString()}</span>
                     {totals.pending > 0 && (
                         <span className="col-span-2 chip bg-peach justify-self-start">
-                            尚有 <span className="tabular-nums">{totals.pending}</span> 筆待指認族人
+                            尚有 <span className="tabular-nums">{totals.pending}</span> 筆待指認居民
                         </span>
                     )}
                 </div>
@@ -132,7 +132,7 @@ function PendingCard({ tx, onAssign }) {
                 ))}
             </div>
             <button onClick={onAssign} className="btn-press h-[52px] rounded-2xl shadow-press-sm bg-forest text-paper text-lg">
-                指認族人並記入欠款
+                指認居民並記入欠款
             </button>
         </Card>
     );

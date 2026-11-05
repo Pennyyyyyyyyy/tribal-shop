@@ -16,7 +16,7 @@ export function StatusBadge({ status }) {
     );
 }
 
-// 批次試算的單張族人卡：顯示 KPI 一列 + 可展開商品明細 + checkbox。
+// 批次試算的單張居民卡：顯示 KPI 一列 + 可展開商品明細 + checkbox。
 // gross=0 → 顯示灰化且不能勾。
 export function ConsignorPreviewCard({ preview, checked, onToggleSelect, expanded, onToggleExpand }) {
     const p = preview;

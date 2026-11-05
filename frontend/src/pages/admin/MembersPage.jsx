@@ -8,7 +8,7 @@ export default function MembersPage() {
     const [error, setError] = useState(null);
     const [repaying, setRepaying] = useState(null);
     const [editing, setEditing] = useState(null);   // 編輯暱稱
-    const [creating, setCreating] = useState(false); // 新增族人
+    const [creating, setCreating] = useState(false); // 新增居民
 
     async function load() {
         setLoading(true);
@@ -30,14 +30,14 @@ export default function MembersPage() {
         <div className="flex flex-col gap-5">
             <div className="flex items-center gap-4 flex-wrap">
                 <div>
-                    <h1 className="font-display text-[38px]">族人管理</h1>
+                    <h1 className="font-display text-[38px]">居民管理</h1>
                     <p className="text-[15px] mt-1">按未還款金額排序</p>
                 </div>
                 <button
                     onClick={() => setCreating(true)}
                     className="btn-press ml-auto h-[54px] px-6 rounded-2xl shadow-press-sm bg-clay text-paper text-xl"
                 >
-                    新增族人
+                    新增居民
                 </button>
             </div>
 
@@ -53,7 +53,7 @@ export default function MembersPage() {
                         <div className="p-10 text-center text-base opacity-70">載入中…</div>
                     ) : items.length === 0 ? (
                         <div className="p-10 text-center text-base opacity-70">
-                            還沒有族人資料，點右上「新增族人」開始
+                            還沒有居民資料，點右上「新增居民」開始
                         </div>
                     ) : (
                         <>
@@ -119,7 +119,7 @@ export default function MembersPage() {
                     ) : (
                         <div className="flex flex-col gap-2">
                             <h2 className="font-display text-[26px]">記錄還款</h2>
-                            <p className="text-base">在左邊列表按族人的「還款」，就能在這裡輸入金額。</p>
+                            <p className="text-base">在左邊列表按居民的「還款」，就能在這裡輸入金額。</p>
                         </div>
                     )}
                 </aside>

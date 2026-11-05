@@ -1,4 +1,4 @@
-// 交易頁共用：類型標籤、明細彈窗、指認族人彈窗（電腦版與手機版都用）
+// 交易頁共用：類型標籤、明細彈窗、指認居民彈窗（電腦版與手機版都用）
 import React, { useEffect, useState } from "react";
 import * as api from "../../service/adminApi";
 import { formatDateTime, safeParseItems } from "../../utils/adminFormat";
@@ -117,7 +117,7 @@ export function AssignDebtorModal({ tx, onClose, onDone }) {
                 onClick={e => e.stopPropagation()}
             >
                 <div className="p-6 border-b-2 border-dashed border-sand">
-                    <h3 className="font-display text-[26px]">指認族人</h3>
+                    <h3 className="font-display text-[26px]">指認居民</h3>
                     <div className="mt-1.5 text-sm">
                         交易 #{tx.id} · {formatDateTime(tx.created_at)} · <span className="font-bold tabular-nums">NT${(tx.total || 0).toLocaleString()}</span>
                     </div>
@@ -127,7 +127,7 @@ export function AssignDebtorModal({ tx, onClose, onDone }) {
                     <input
                         value={filter}
                         onChange={e => setFilter(e.target.value)}
-                        placeholder="搜尋族人暱稱"
+                        placeholder="搜尋居民暱稱"
                         autoFocus
                         className="field h-12 text-base"
                     />
@@ -141,10 +141,10 @@ export function AssignDebtorModal({ tx, onClose, onDone }) {
 
                 <div className="flex-1 overflow-y-auto px-4 pb-4">
                     {members === null ? (
-                        <div className="py-4 text-center text-base opacity-70">載入族人中…</div>
+                        <div className="py-4 text-center text-base opacity-70">載入居民中…</div>
                     ) : filtered.length === 0 ? (
                         <div className="py-4 text-center text-base opacity-70">
-                            {filter ? "找不到符合的族人" : "還沒有族人資料"}
+                            {filter ? "找不到符合的居民" : "還沒有居民資料"}
                         </div>
                     ) : (
                         <ul className="divide-y-2 divide-wheat border-2 border-sand rounded-2xl overflow-hidden">

@@ -47,7 +47,7 @@ export default function TransactionsPage() {
                     <span>賒帳 NT${totals.credit.toLocaleString()}</span>
                     {totals.pending > 0 && (
                         <span className="ml-auto chip bg-peach">
-                            尚有 <span className="tabular-nums">{totals.pending}</span> 筆待指認族人
+                            尚有 <span className="tabular-nums">{totals.pending}</span> 筆待指認居民
                         </span>
                     )}
                 </div>
@@ -94,7 +94,7 @@ export default function TransactionsPage() {
                                                             onClick={() => setAssigning(tx)}
                                                             className="btn-press h-[38px] px-3.5 rounded-xl border-2 shadow-[0_3px_0_#4A2C1A] bg-clay text-paper text-[15px]"
                                                         >
-                                                            指認族人
+                                                            指認居民
                                                         </button>
                                                     )}
                                                     <button

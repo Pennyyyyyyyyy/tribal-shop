@@ -47,7 +47,7 @@ export default function ConsignmentMobile() {
 
     return (
         <div className="flex flex-col gap-3.5">
-            <PageHeader title="寄賣商品" subtitle="族人透過 LINE 上架的商品" />
+            <PageHeader title="寄賣商品" subtitle="居民透過 LINE 上架的商品" />
 
             <label htmlFor="m-consign-search" className="sr-only">搜尋名稱</label>
             <input

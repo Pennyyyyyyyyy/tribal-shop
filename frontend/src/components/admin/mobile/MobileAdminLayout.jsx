@@ -9,7 +9,7 @@ const NAV = [
     { to: "/admin", label: "總覽", end: true, icon: IconGrid },
     { to: "/admin/products", label: "商品", icon: IconBox },
     { to: "/admin/transactions", label: "交易", icon: IconReceipt },
-    { to: "/admin/members", label: "族人", icon: IconPeople },
+    { to: "/admin/members", label: "居民", icon: IconPeople },
     { to: "/admin/more", label: "更多", icon: IconDots, matchMore: true },
 ];
 

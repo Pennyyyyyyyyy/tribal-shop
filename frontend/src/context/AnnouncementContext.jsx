@@ -3,10 +3,11 @@ import React, { createContext, useContext, useState } from "react";
 // TODO: 之後改為從後端 /api/announcement 抓取 announcement 表資料
 const MOCK_ANNOUNCEMENT = {
   id: 1,
-  title: "部落豐年祭特別活動開跑！",
+  title: "徵求泰雅族服飾工作室（坊）及工藝師",
   description:
-    "即日起至月底，族人消費滿 200 元即可參加抽獎，獎品豐富包含手工編織品、農產禮盒。歡迎大家一同參與部落盛事。",
-  url: "https://www.tribal-shop.example/news/harvest-festival",
+    "116 年度「桃園市復興區泰雅族服飾購製補助示範計畫」，公開徵求自薦或推薦本區製作泰雅族服飾的工作室（坊）及工藝師。\n\n" +
+    "受理期間：即日起至 115 年 12 月 10 日（四）",
+  url: "https://www.fuxing.tycg.gov.tw/News_Content.aspx?n=5708&s=1954256",
 };
 
 const AnnouncementContext = createContext(null);

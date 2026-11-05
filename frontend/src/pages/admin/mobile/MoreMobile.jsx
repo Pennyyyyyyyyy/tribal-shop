@@ -24,7 +24,7 @@ export default function MoreMobile() {
         <div className="flex flex-col gap-3.5">
             <h1 className="font-display text-[30px] leading-tight">更多</h1>
 
-            <MenuItem to="/admin/consignment-products" title="寄賣商品" desc="族人透過 LINE 上架的商品" badge={pendingCount}>
+            <MenuItem to="/admin/consignment-products" title="寄賣商品" desc="居民透過 LINE 上架的商品" badge={pendingCount}>
                 <path d="M3 9l2-5h14l2 5" /><path d="M4 9v11h16V9" /><path d="M9 20v-6h6v6" />
             </MenuItem>
             <MenuItem to="/admin/payouts" title="分潤結算" desc="寄賣者分潤與歷史結算">

@@ -22,7 +22,7 @@ function StepPaymentMethod({ totalAmount, onBackToCart, onPayLinePay, onGoCredit
           onClick={onGoCredit}
           className="px-8 py-4 rounded-2xl bg-slate-800 text-white text-lg font-bold shadow-lg hover:bg-slate-700 transition-transform hover:scale-105 active:scale-95"
         >
-          📘 賒帳（限已註冊族人）
+          📘 賒帳（限已註冊居民）
         </button>
       </div>
       <button

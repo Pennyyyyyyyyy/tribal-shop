@@ -105,7 +105,7 @@ export const stats = {
     dashboard: () => request("/stats/dashboard"),
 };
 
-// ─── Consignors 寄賣族人 ─────────────────────────────────────────
+// ─── Consignors 寄賣居民 ─────────────────────────────────────────
 export const consignors = {
     list: () => request("/consignors"),
     // lineId 是 text 主鍵，可能含破 URL 的字元 → encode。

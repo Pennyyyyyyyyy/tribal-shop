@@ -1,4 +1,4 @@
-// 寄賣商品頁 (/admin/consignment-products) —— 只列寄賣族人透過 LINE 上架的商品。
+// 寄賣商品頁 (/admin/consignment-products) —— 只列寄賣居民透過 LINE 上架的商品。
 // 有審核 tabs（全部 / 已上架 / 待審核 / 已駁回）+ 寄賣者欄；沒有「新增商品」按鈕
 // （寄賣商品僅能從 LINE 上架，店長從 admin 端不主動建）。
 import React, { useEffect, useMemo, useState } from "react";
@@ -91,7 +91,7 @@ export default function ConsignmentProductsPage() {
         <div className="flex flex-col gap-5">
             <div>
                 <h1 className="font-display text-[38px]">寄賣商品</h1>
-                <p className="text-[15px] mt-1">族人透過 LINE 上架的商品</p>
+                <p className="text-[15px] mt-1">居民透過 LINE 上架的商品</p>
             </div>
 
             <div className="flex gap-2.5 items-center flex-wrap">
@@ -131,7 +131,7 @@ export default function ConsignmentProductsPage() {
                     <div className="p-10 text-center text-base opacity-70">
                         {filter || categoryFilter !== "全部" || statusFilter !== null
                             ? "找不到相符的商品"
-                            : "還沒有寄賣商品 —— 邀請族人加 LINE bot 好友上架"}
+                            : "還沒有寄賣商品 —— 邀請居民加 LINE bot 好友上架"}
                     </div>
                 ) : (
                     <div className="overflow-x-auto">
