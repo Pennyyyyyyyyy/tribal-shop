@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import AnnouncementPopup from "../components/AnnouncementPopup";
 import { useAnnouncement } from "../context/AnnouncementContext";
+import BackButton from "../components/BackButton";
 
 const PASSWORD_LENGTH = 4;
 
@@ -63,13 +64,7 @@ export default function AuthPage() {
       <AnnouncementPopup />
 
       <div className="flex flex-col gap-5">
-        <button
-          type="button"
-          onClick={() => navigate("/")}
-          className="btn-ghost self-start h-12 px-[22px] text-[17px]"
-        >
-          返回首頁
-        </button>
+        <BackButton to="/" />
         <h1 className="mt-3 font-display text-[56px] leading-tight">賒帳身份驗證</h1>
         <p className="text-[22px] leading-relaxed opacity-85">
           請輸入通關密碼，完成身份確認。

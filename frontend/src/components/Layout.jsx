@@ -15,7 +15,7 @@ const GUEST_STEP_MAP = {
 };
 const GUEST_TOTAL = 6;
 
-// 族人：Welcome(1) → Auth(2) → Instruction(3) → Scan/Products(4) → Cart(5) → Evidence(6)
+// 居民：Welcome(1) → Auth(2) → Instruction(3) → Scan/Products(4) → Cart(5) → Evidence(6)
 const TRIBAL_STEP_MAP = {
   "/": 1,
   "/auth": 2,
@@ -29,6 +29,9 @@ const TRIBAL_TOTAL = 6;
 
 // 歡迎頁與完成頁是滿版插畫，不顯示頂欄
 const FULL_BLEED_PATHS = new Set(["/", "/complete"]);
+
+// 掃描頁讓相機盡量大，內距縮小（設計稿 16px / 20px）
+const COMPACT_PATHS = new Set(["/scan"]);
 
 export default function Layout() {
   const location = useLocation();
@@ -49,7 +52,11 @@ export default function Layout() {
   return (
     <div className="h-screen flex flex-col bg-cream text-ink overflow-hidden">
       <Header currentStep={currentStep} totalSteps={totalSteps} />
-      <main className="flex-1 flex flex-col min-h-0 px-8 py-6">
+      <main
+        className={`flex-1 flex flex-col min-h-0 ${
+          COMPACT_PATHS.has(location.pathname) ? "px-5 pt-4 pb-5" : "px-8 py-6"
+        }`}
+      >
         <Outlet />
       </main>
     </div>

@@ -2,7 +2,7 @@ import React, { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCheckout } from "../context/CheckoutContext";
 import CameraView from "../components/CameraView";
-import { useVoiceInstruction } from "../hooks/useVoiceInstruction";
+import BackButton from "../components/BackButton";
 
 const isE2E =
   typeof window !== "undefined" &&
@@ -80,7 +80,7 @@ export default function EvidencePage() {
       // 結帳成功後的處理
       if (isTribalMember) {
         resetAll();
-        navigate("/"); // 族人賒帳完回首頁，店長會在 LINE 收到確認通知
+        navigate("/"); // 居民賒帳完回首頁，店長會在 LINE 收到確認通知
       } else {
         navigate("/payment"); // 一般遊客導向支付
       }
@@ -92,18 +92,14 @@ export default function EvidencePage() {
     }
   };
 
-  // 語音指示
-  useVoiceInstruction(
-    evidenceSnapshot 
-      ? "已完成拍照，確認無誤請點選確認送出，或重新拍攝" 
-      : "請看著鏡頭，把臉對準框內，準備好後請點擊拍照",
-    [evidenceSnapshot]
-  );
 
   return (
     <div className="flex-1 min-h-0 grid grid-cols-[minmax(0,1fr)_360px] gap-8">
       <section className="flex flex-col gap-3.5 min-h-0">
-        <h1 className="font-display text-[38px]">拍照存證</h1>
+        <div className="flex items-center gap-5">
+          <BackButton to="/cart" />
+          <h1 className="font-display text-[38px]">拍照紀錄</h1>
+        </div>
         <div className="flex-1 min-h-0 relative overflow-hidden bg-cocoa border-[3px] border-ink rounded-[28px] shadow-press-lg">
           {evidenceSnapshot ? (
             <img
@@ -118,28 +114,19 @@ export default function EvidencePage() {
               videoRef={evidenceVideoRef}
               onReadyChange={setCamReady}
               onErrorChange={setCamErr}
-            >
-              {/* 臉部對位框 */}
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-[58%] h-[78%] border-4 border-dashed border-peach/80 rounded-[40%_40%_24px_24px/30%_30%_24px_24px] flex items-end justify-center pb-5">
-                  <span className="bg-peach/90 text-ink rounded-xl px-3.5 py-1.5 text-base font-bold">
-                    請將臉放在框內
-                  </span>
-                </div>
-              </div>
-            </CameraView>
+            />
           )}
 
           <div className="absolute inset-x-0 bottom-0 px-6 py-4 bg-cocoa/85 text-cream text-lg text-center">
             {evidenceSnapshot
               ? "已拍好照片，確認沒問題請按「送出」，或按「重拍」"
-              : "請看著鏡頭，把臉對準框內，準備好後按「拍照」"}
+              : "請看著鏡頭，準備好後按拍照"}
           </div>
         </div>
         <canvas ref={evidenceCanvasRef} className="hidden" />
       </section>
 
-      <aside className="flex flex-col gap-[18px] pt-[58px] min-h-0">
+      <aside className="flex flex-col gap-[18px] pt-[62px] min-h-0">
         <div className="panel px-6 py-[22px] flex flex-col gap-3">
           <h2 className="font-display text-2xl">拍照小提示</h2>
           <p className="text-lg leading-[1.7]">
@@ -148,7 +135,7 @@ export default function EvidencePage() {
         </div>
 
         <div className="bg-paper border-[3px] border-sand rounded-[22px] px-6 py-[18px] flex justify-between items-baseline">
-          <span className="text-[17px]">本次 {itemCount} 件</span>
+          <span className="text-[17px]">本次消費 {itemCount} 件</span>
           <span className="font-display text-[30px] text-forest">NT${totalAmount}</span>
         </div>
 
@@ -212,13 +199,6 @@ export default function EvidencePage() {
                   <circle cx="12" cy="13" r="3.5" />
                 </svg>
                 拍照
-              </button>
-              <button
-                onClick={() => navigate("/cart")}
-                disabled={isSavingEvidence}
-                className="btn-ghost h-14 text-lg"
-              >
-                返回購物車
               </button>
             </>
           )}

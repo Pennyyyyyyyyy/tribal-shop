@@ -9,7 +9,8 @@ import { useCheckout } from "../context/CheckoutContext";
 import CameraView from "../components/CameraView";
 import RoiEditor from "../components/RoiEditor";
 import CartIcon from "../components/CartIcon";
-import { useVoiceInstruction } from "../hooks/useVoiceInstruction";
+import CameraIcon from "../components/CameraIcon";
+import BackButton from "../components/BackButton";
 
 
 const isE2E =
@@ -52,6 +53,15 @@ export default function ScanPage() {
     API_BASE_URL,
   } = useCheckout();
 
+  // 鏡頭狀態（右上角「鏡頭已就緒」）
+  const [camReady, setCamReady] = useState(false);
+  const [camError, setCamError] = useState("");
+  // 拍照辨識失敗的原因（顯示在相機畫面上；不再用假資料頂替）
+  const [scanError, setScanError] = useState("");
+
+  const stepClassLg =
+    "focus-ring w-12 h-12 rounded-full bg-paper text-[26px] font-bold flex items-center justify-center active:scale-95 transition cursor-pointer select-none";
+
 
   const [
     scanPhase,
@@ -60,7 +70,7 @@ export default function ScanPage() {
 
 
   const [
-    _scannedResults,
+    scannedResults,
     setScannedResults,
   ] = useState([]);
 
@@ -89,9 +99,8 @@ export default function ScanPage() {
   ] = useState(false);
 
   // 模式切換：auto (自動分切) vs roi (固定 1~3 格)
-  const [scanMode, setScanMode] = useState(
-    () => localStorage.getItem("tribal_scan_mode") || "auto"
-  );
+  // 每次進入 /scan 一律從「自動辨識」開始，不沿用上次的選擇
+  const [scanMode, setScanMode] = useState("auto");
 
   // ROI 件數：1, 2, 3
   const [roiCount, setRoiCount] = useState(() => {
@@ -111,7 +120,6 @@ export default function ScanPage() {
 
   const handleModeChange = (mode) => {
     setScanMode(mode);
-    localStorage.setItem("tribal_scan_mode", mode);
   };
 
   const handleRoiCountChange = (count) => {
@@ -448,10 +456,14 @@ export default function ScanPage() {
     );
 
     setScanData(null);
+    setScanError("");
 
     setScannedResults(
       []
     );
+
+    // 失敗原因，最後統一顯示
+    let failReason = "鏡頭沒有畫面，請確認鏡頭已接上並允許使用。";
 
 
 
@@ -608,45 +620,25 @@ export default function ScanPage() {
           "後端沒有回傳有效 predictions:",
           data
         );
+        failReason = data?.message || "辨識服務沒有回傳有效結果，請再拍一次。";
 
 
       } catch (err) {
 
         console.warn(
-          "API 失敗，切換至備用模式",
+          "拍照辨識失敗",
           err
         );
+        failReason = "連不上辨識服務，請確認辨識程式已啟動。";
       }
     }
 
 
 
-    const fallback =
-      products
-        .slice(0, 3)
-        .map((p) => ({
-          ...p,
-          id: String(p.id),
-          product_id: String(p.id),
-          quantity: 1,
-          confidence: 0.5,
-          isMock: true,
-        }));
-
-    setScannedItems(fallback);
-    setScanData({
-      cart_items: fallback,
-      total_objects_detected: fallback.length,
-      unrecognized_count: 0,
-    });
-    setScannedResults(
-      fallback
-    );
-
-
-    setScanPhase(
-      "RESULT"
-    );
+    // 辨識失敗：不再拿商品清單前 3 個當假結果（會讓客人為沒拿的商品付錢），
+    // 購物車保持原樣，回到可再拍照的狀態並提示原因
+    setScanError(failReason);
+    setScanPhase("IDLE");
   };
 
 
@@ -906,150 +898,10 @@ export default function ScanPage() {
 
 
 
-  const commandsRef =
-    useRef({});
-
-
-  useEffect(() => {
-
-    commandsRef.current = {
-
-
-      "拍照": () => {
-
-        if (
-          developerMode
-        ) {
-
-          return;
-        }
-
-
-        if (
-          uploadedImagePreview
-        ) {
-
-          returnToCamera();
-
-          return;
-        }
-
-
-        if (
-          scanPhase !==
-          "SCANNING"
-        ) {
-
-          doScan();
-        }
-      },
-
-
-      "辨識": () => {
-
-        if (
-          developerMode
-        ) {
-
-          return;
-        }
-
-
-        if (
-          uploadedImagePreview
-        ) {
-
-          return;
-        }
-
-
-        if (
-          scanPhase !==
-          "SCANNING"
-        ) {
-
-          doScan();
-        }
-      },
-
-
-      "重新辨識": () => {
-
-        if (
-          developerMode
-        ) {
-
-          return;
-        }
-
-
-        if (
-          uploadedImagePreview
-        ) {
-
-          imageInputRef.current
-            ?.click();
-
-          return;
-        }
-
-
-        if (
-          scanPhase ===
-          "RESULT"
-        ) {
-
-          doScan();
-        }
-      },
-
-
-      "結帳": () => {
-
-        if (
-          cart.length > 0
-        ) {
-
-          navigate(
-            "/cart"
-          );
-        }
-      },
-
-
-      "查看清單": () => {
-
-        if (
-          cart.length > 0
-        ) {
-
-          navigate(
-            "/cart"
-          );
-        }
-      },
-
-    };
-
-  });
 
 
 
 
-  // ==========================================================
-  // 語音指示
-  // ==========================================================
-
-  useVoiceInstruction(
-    developerMode
-      ? "目前為辨識區校正模式"
-      : scanPhase === "SCANNING"
-      ? "正在辨識中，請稍候"
-      : scanPhase === "RESULT"
-      ? "辨識完成，請點選商品加入購物車，或重新辨識"
-      : "請將商品放入辨識區，點擊拍照進行辨識",
-    [scanPhase, developerMode]
-  );
 
 
 
@@ -1072,812 +924,469 @@ export default function ScanPage() {
     uploadedImagePreview
   ]);
 
+  // 購物車列表用的圖片網址（舊後端路徑轉成 /photo/）
+  const cartImgSrc = (url) =>
+    url.startsWith("http")
+      ? url
+      : url.replace("/uploads/product_photos/", "/photo/");
+
+  const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+
+  const scanning = scanPhase === "SCANNING";
+
+  // 辨識結果只顯示這次拍照辨識到的商品：
+  // 購物車裡手動加入的 (isManual) 不算；但如果這次辨識到的商品剛好也手動加過，仍顯示
+  const scannedIds = new Set(
+    (scannedResults || []).map((r) => String(r?.id ?? r?.product_id ?? r?.name))
+  );
+  const resultItems = cart.filter(
+    (item) => !item.isManual || scannedIds.has(String(item.id ?? item.product_id ?? item.name))
+  );
+
   return (
+    <div className="flex-1 min-h-0 grid grid-cols-[minmax(0,1fr)_320px] gap-5">
 
-    <div
-      className="w-full flex-1 min-h-0 overflow-auto"
-    >
+      {/* ===================================================
+          左：相機（或辨識結果）
+      ==================================================== */}
 
-      <div
-        className="w-full max-w-6xl mx-auto min-h-full flex flex-col gap-4"
-      >
-
-
-        {/* ===================================================
-            主卡片
-        ==================================================== */}
-
-        <div
-          className="panel flex-1 min-h-0 p-5 md:p-7 flex flex-col gap-5"
+      {scanPhase !== "RESULT" || developerMode ? (
+        <section
+          aria-label="相機畫面"
+          className="relative min-h-0 min-w-0 bg-cocoa border-[3px] border-ink rounded-[28px] shadow-press-lg overflow-hidden"
         >
+          {/* 16:9 畫面在區塊內取最大，ROI 百分比座標才會對齊實際影像 */}
+          <div className="absolute inset-0 flex items-center justify-center [container-type:size]">
+            <div className="relative aspect-video w-[min(100cqw,calc(100cqh*16/9))]">
 
-
-          {/* =================================================
-              Header
-          ================================================== */}
-
-          <div
-            className="
-              shrink-0
-              flex
-              flex-col
-              sm:flex-row
-              sm:items-start
-              sm:justify-between
-              gap-4
-            "
-          >
-
-            <div>
-
-              <h1
-                className="font-display text-2xl md:text-3xl text-ink"
-              >
-
-                {
-                  developerMode
-
-                    ? `ROI 辨識區校正 (${roiCount} 件模式)`
-
-                    : scanPhase ===
-                      "RESULT"
-
-                    ? "辨識結果"
-
-                    : "商品掃描"
-                }
-
-              </h1>
-
-
-              <p
-                className="mt-2 text-sm md:text-base text-ink/60"
-              >
-
-                {
-                  developerMode
-
-                    ? `拖曳調整 ${roiCount} 個辨識框的位置與大小，完成後請點擊下方「完成校正」。`
-
-                    : scanPhase ===
-                      "RESULT"
-
-                    ? "確認辨識結果後，點選商品即可加入購物車。"
-
-                    : uploadedImagePreview
-
-                    ? "目前顯示從電腦匯入的照片。"
-
-                    : scanMode === "roi"
-
-                    ? `ROI ${roiCount} 件模式：請將商品分別擺在相機畫面的 ${roiCount} 個導引框內，再按下辨識。`
-
-                    : "自動分切模式：請將商品任意放置於桌面上（避免堆疊），再按下辨識。"
-                }
-
-              </p>
-
-              {/* 模式切換與件數選擇 */}
-              {!developerMode && scanPhase !== "RESULT" && (
-                <div className="flex flex-wrap items-center gap-3 mt-4">
-                  {/* 模式切換 Tab */}
-                  <div className="inline-flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => handleModeChange("auto")}
-                      aria-pressed={scanMode === "auto"}
-                      className={`pill focus-ring ${scanMode === "auto" ? "pill-on" : "hover:border-clay"}`}
-                    >
-                      自動辨識
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => handleModeChange("roi")}
-                      aria-pressed={scanMode === "roi"}
-                      className={`pill focus-ring ${scanMode === "roi" ? "pill-on" : "hover:border-clay"}`}
-                    >
-                      ROI 區域模式
-                    </button>
+              {uploadedImagePreview ? (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <img
+                    src={uploadedImagePreview}
+                    alt="上傳商品預覽"
+                    className="w-full h-full object-contain"
+                  />
+                  <div className="absolute bottom-4 left-4 z-20 bg-cocoa/80 text-cream px-3 py-1.5 rounded-full text-xs">
+                    電腦匯入圖片
                   </div>
+                </div>
+              ) : (
+                <CameraView
+                  bare
+                  mode="external"
+                  videoRef={scanVideoRef}
+                  onReadyChange={setCamReady}
+                  onErrorChange={setCamError}
+                />
+              )}
 
-                  {/* ROI 件數選擇 (僅在 ROI 模式顯示) */}
-                  {scanMode === "roi" && (
-                    <div className="inline-flex items-center gap-2">
-                      <span className="text-sm font-bold text-ink/70 pl-1">
-                        預計件數：
-                      </span>
-                      {[1, 2, 3].map((num) => (
-                        <button
-                          key={num}
-                          type="button"
-                          onClick={() => handleRoiCountChange(num)}
-                          aria-pressed={roiCount === num}
-                          className={`pill focus-ring ${
-                            roiCount === num
-                              ? "bg-clay border-ink text-paper"
-                              : "hover:border-clay"
-                          }`}
-                        >
-                          {num} 件
-                        </button>
-                      ))}
-                    </div>
-                  )}
+              {!developerMode && scanning && (
+                <div className="absolute inset-0 bg-cocoa/60 flex items-center justify-center z-30">
+                  <div className="bg-paper border-[3px] border-ink px-6 py-3 rounded-2xl font-display text-xl text-ink">
+                    辨識中...
+                  </div>
                 </div>
               )}
 
+              {/* ROI Overlay (微調校正模式) */}
+              {developerMode && (
+                <RoiEditor
+                  regions={activeRoiRegions}
+                  onChange={(newRegions) => {
+                    setCustomRoiLayouts((prev) => {
+                      const next = { ...prev, [roiCount]: newRegions };
+                      localStorage.setItem("tribal_custom_rois", JSON.stringify(next));
+                      return next;
+                    });
+                  }}
+                />
+              )}
+
+              {/* ROI 擺放導引框 */}
+              {!developerMode && scanMode === "roi" && (
+                <div className="absolute inset-0 pointer-events-none z-20">
+                  {activeRoiRegions.map((region) => (
+                    <div
+                      key={region.id}
+                      style={{
+                        left: `${region.x1 * 100}%`,
+                        top: `${region.y1 * 100}%`,
+                        width: `${(region.x2 - region.x1) * 100}%`,
+                        height: `${(region.y2 - region.y1) * 100}%`,
+                      }}
+                      className="absolute border-4 border-peach bg-peach/10 rounded-[20px]"
+                    >
+                      <span className="absolute -left-1 -bottom-1 bg-peach text-ink rounded-[12px_12px_12px_18px] px-3.5 py-1.5 text-[17px] font-bold">
+                        商品 {region.id}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
+          </div>
 
+          {/* 上方浮動列：返回 / 模式切換 / 鏡頭狀態 */}
+          <div className="absolute left-4 right-4 top-4 z-40 flex items-center justify-between gap-3">
+            {developerMode ? (
+              <div className="chipbtn cursor-default bg-peach">
+                ROI 微調模式（{roiCount} 件）
+              </div>
+            ) : (
+              <BackButton to="/instruction" variant="chip" label="返回操作說明" />
+            )}
 
-            {/* ROI 開發者按鈕 (僅在 ROI 模式顯示) */}
+            {!developerMode && (
+              <div className="flex items-center gap-2">
+                <div className="seg" role="group" aria-label="辨識模式">
+                  <button
+                    type="button"
+                    onClick={() => handleModeChange("auto")}
+                    aria-pressed={scanMode === "auto"}
+                    className={scanMode === "auto" ? "seg-on" : ""}
+                  >
+                    自動辨識
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleModeChange("roi")}
+                    aria-pressed={scanMode === "roi"}
+                    className={scanMode === "roi" ? "seg-on" : ""}
+                  >
+                    ROI 區域模式
+                  </button>
+                </div>
 
-            {scanMode === "roi" && (
+                {scanMode === "roi" && (
+                  <div className="seg" role="group" aria-label="預計件數">
+                    {[1, 2, 3].map((num) => (
+                      <button
+                        key={num}
+                        type="button"
+                        onClick={() => handleRoiCountChange(num)}
+                        aria-pressed={roiCount === num}
+                        className={roiCount === num ? "seg-on" : ""}
+                      >
+                        {num} 件
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="chipbtn cursor-default">
+              <span
+                className={`w-2.5 h-2.5 rounded-full ${
+                  uploadedImagePreview || camReady
+                    ? "bg-forest"
+                    : camError
+                    ? "bg-rust"
+                    : "bg-peach animate-pulse"
+                }`}
+              />
+              {uploadedImagePreview
+                ? "電腦匯入圖片"
+                : camReady
+                ? "鏡頭已就緒"
+                : camError
+                ? "鏡頭無法使用"
+                : "鏡頭啟動中"}
+            </div>
+          </div>
+
+          {/* 辨識失敗提示 */}
+          {!developerMode && scanError && !scanning && (
+            <div
+              role="alert"
+              className="absolute left-1/2 -translate-x-1/2 top-20 z-40 w-[min(560px,calc(100%-32px))] bg-peach border-[3px] border-ink rounded-[20px] px-5 py-4 flex flex-col gap-3"
+            >
+              <div className="font-display text-2xl">辨識失敗</div>
+              <p className="text-lg leading-relaxed">{scanError}</p>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => navigate("/products")}
+                  className="btn-press focus-ring h-12 px-5 bg-forest text-paper text-lg"
+                >
+                  手動選擇商品
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setScanError("")}
+                  className="btn-ghost focus-ring h-12 px-5 bg-paper"
+                >
+                  關閉
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* 已加入提示 */}
+          {!developerMode && lastAddedItem && (
+            <div className="absolute left-1/2 -translate-x-1/2 top-20 z-40 bg-moss border-[3px] border-ink rounded-full px-5 py-2 text-ink text-base font-bold">
+              ✓ 已加入：{lastAddedItem.name}
+            </div>
+          )}
+
+          {/* 下方：拍照辨識（或微調控制） */}
+          <div className="absolute left-4 right-4 bottom-[26px] z-40 flex items-end justify-center">
+            {developerMode ? (
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCustomRoiLayouts((prev) => {
+                      const next = { ...prev, [roiCount]: DEFAULT_ROI_LAYOUTS[roiCount] };
+                      localStorage.setItem("tribal_custom_rois", JSON.stringify(next));
+                      return next;
+                    });
+                    alert(`已將 ${roiCount} 件模式的框線恢復為預設位置！`);
+                  }}
+                  className="btn-ghost focus-ring h-[72px] px-7 text-lg rounded-full"
+                >
+                  ↺ 重設為預設框線
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDeveloperMode(false)}
+                  className="btn-press focus-ring h-[72px] px-9 bg-forest text-paper text-2xl rounded-full"
+                >
+                  ✓ 完成微調
+                </button>
+              </div>
+            ) : (
               <button
-
-                type="button"
-
-                onClick={() => {
-
-                  setDeveloperMode(
-                    (prev) => !prev
-                  );
-
-                }}
-
-                disabled={
-                  scanPhase ===
-                  "SCANNING"
-                }
-
-                className={`btn-ghost focus-ring shrink-0 h-11 px-4 text-sm ${
-                  developerMode ? "bg-peach hover:bg-peach border-2 border-clay" : ""
+                onClick={handleCameraButton}
+                disabled={scanning}
+                className={`btn-press focus-ring w-[340px] h-[84px] gap-3 rounded-full text-[32px] ${
+                  uploadedImagePreview ? "bg-paper text-ink" : "bg-clay text-paper"
                 }`}
               >
-
-                {
-                  developerMode
-
-                    ? "✕ 離開微調"
-
-                    : "微調框線"
-                }
-
+                <CameraIcon size={34} />
+                {scanning ? "辨識中..." : uploadedImagePreview ? "返回相機" : "拍照辨識"}
               </button>
             )}
 
+            {/* 左下：開發 / 測試用工具 */}
+            {!developerMode && (
+              <div className="absolute left-0 bottom-0 flex flex-col items-start gap-2">
+                {scanMode === "roi" && (
+                  <button
+                    type="button"
+                    onClick={() => setDeveloperMode(true)}
+                    disabled={scanning}
+                    className="chipbtn focus-ring"
+                  >
+                    微調框線
+                  </button>
+                )}
+              </div>
+            )}
           </div>
+        </section>
+      ) : (
 
+        /* =================================================
+            辨識結果 (多商品數量聚合與觸控加減微調)
+        ================================================== */
 
-          {/* =================================================
-              已加入提示
-          ================================================== */}
-
-          {!developerMode &&
-            lastAddedItem && (
-
-            <div
-              className="shrink-0 bg-moss/40 border-2 border-moss rounded-2xl px-4 py-3 text-ink text-sm"
-            >
-
-              ✓ 已加入：
-
-              <b className="ml-1">
-
-                {
-                  lastAddedItem.name
-                }
-
-              </b>
-
+        <section className="panel rounded-[28px] min-h-0 min-w-0 p-5 flex flex-col gap-3">
+          <div className="flex items-center justify-between pb-3 border-b-2 border-sand shrink-0">
+            <div className="flex items-center gap-3">
+              <h1 className="font-display text-[34px] text-ink">辨識結果</h1>
+              {scanData?.total_objects_detected !== undefined && (
+                <span className="chip bg-moss text-ink text-xl px-4 py-1.5">
+                  偵測到 {scanData.total_objects_detected} 件物品
+                </span>
+              )}
+              {scanData?.unrecognized_count > 0 && (
+                <span className="chip bg-peach text-rust text-xl px-4 py-1.5">
+                  {scanData.unrecognized_count} 件未辨識
+                </span>
+              )}
             </div>
 
-          )}
-
-
-          {/* =================================================
-              掃描 / ROI 校正畫面
-          ================================================== */}
-
-          {
-            scanPhase !==
-              "RESULT" ||
-            developerMode
-
-            ? (
-
-              <div
-                className="
-                  flex-1
-                  min-h-0
-                  flex
-                  flex-col
-                  items-center
-                  justify-center
-                  gap-4
-                "
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setScanPhase("IDLE");
+                  setScanData(null);
+                  setUploadedImagePreview(null);
+                }}
+                className="btn-press focus-ring h-12 px-5 bg-clay text-paper text-lg gap-2"
               >
-
-
-                {/* =============================================
-                    Camera
-                ============================================== */}
-
-                <div
-                  className="
-                    w-full
-                    max-w-4xl
-                    flex
-                    items-center
-                    justify-center
-                  "
-                >
-
-                  <div
-                    className="relative w-full aspect-video bg-cocoa rounded-[22px] overflow-hidden border-[3px] border-ink"
-                  >
-
-
-                    {/* =========================================
-                        上傳圖片
-                    ========================================== */}
-
-                    {
-                      uploadedImagePreview
-
-                      ? (
-
-                        <div
-                          className="absolute inset-0 flex items-center justify-center bg-cocoa"
-                        >
-
-                          <img
-
-                            src={
-                              uploadedImagePreview
-                            }
-
-                            alt="上傳商品預覽"
-
-                            className="
-                              w-full
-                              h-full
-                              object-contain
-                            "
-
-                          />
-
-
-                          {
-                            !developerMode &&
-                            scanPhase ===
-                              "SCANNING" && (
-
-                              <div
-                                className="absolute inset-0 bg-cocoa/60 flex items-center justify-center z-20"
-                              >
-
-                                <div
-                                  className="bg-paper border-[3px] border-ink px-6 py-3 rounded-2xl font-display text-lg text-ink"
-                                >
-
-                                  辨識中...
-
-                                </div>
-
-                              </div>
-
-                            )
-                          }
-
-
-                          <div
-                            className="absolute bottom-4 left-4 z-20 bg-cocoa/80 text-cream px-3 py-1.5 rounded-full text-xs"
-                          >
-
-                            電腦匯入圖片
-
-                          </div>
-
-                        </div>
-
-                      )
-
-                      : (
-
-                        <CameraView
-
-                          fill
-
-                          mode="external"
-
-                          label="SCANNING"
-
-                          status={
-
-                            scanPhase ===
-                            "SCANNING"
-
-                              ? "SCANNING"
-
-                              : "LIVE"
-
-                          }
-
-                          videoRef={
-                            scanVideoRef
-                          }
-
-                        />
-
-                      )
-                    }
-
-
-                    {/* =========================================
-                        ROI Overlay (微調校正模式)
-                    ========================================== */}
-
-                    {developerMode && (
-                      <RoiEditor
-                        regions={activeRoiRegions}
-                        onChange={(newRegions) => {
-                          setCustomRoiLayouts((prev) => {
-                            const next = { ...prev, [roiCount]: newRegions };
-                            localStorage.setItem("tribal_custom_rois", JSON.stringify(next));
-                            return next;
-                          });
-                        }}
-                      />
-                    )}
-
-                    {/* =========================================
-                        ROI 輔助導引框 (常駐擺放指引)
-                    ========================================== */}
-                    {!developerMode && scanMode === "roi" && (
-                      <div className="absolute inset-0 pointer-events-none z-20">
-                        {activeRoiRegions.map((region) => {
-                          const left = `${region.x1 * 100}%`;
-                          const top = `${region.y1 * 100}%`;
-                          const width = `${(region.x2 - region.x1) * 100}%`;
-                          const height = `${(region.y2 - region.y1) * 100}%`;
-                          return (
-                            <div
-                              key={region.id}
-                              style={{ left, top, width, height }}
-                              className="absolute border-[3px] border-dashed border-peach bg-peach/10 rounded-2xl flex flex-col justify-between p-3 transition-all duration-300"
-                            >
-                              <div className="inline-flex self-start items-center px-2.5 py-1 rounded-lg bg-peach text-ink text-xs font-bold">
-                                <span>商品 {region.id}</span>
-                              </div>
-                              <div className="text-center text-xs text-cream font-bold bg-cocoa/70 py-1 px-3 rounded-lg self-center backdrop-blur-sm">
-                                請將商品置於框內
-                              </div>
-                            </div>
-                          );
-                        })}
-
-                        {/* 頂部引導指示牌 */}
-                        <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-cocoa/85 text-peach border-2 border-peach/40 px-4 py-1.5 rounded-full text-xs font-bold backdrop-blur-sm flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-full bg-peach animate-ping" />
-                          <span>ROI {roiCount} 件模式：請將商品分別放入上方框內</span>
-                        </div>
-                      </div>
-                    )}
-
-
-                    {/* =========================================
-                        ROI 模式標示
-                    ========================================== */}
-
-                    {
-                      developerMode && (
-
-                        <div
-                          className="absolute top-4 right-4 z-50 bg-peach border-2 border-ink text-ink px-3 py-1.5 rounded-full text-xs font-bold pointer-events-none"
-                        >
-
-                          ROI 微調模式 ({roiCount} 件)
-
-                        </div>
-
-                      )
-                    }
-
-                  </div>
-
-                </div>
-
-
-                {/* =============================================
-                    ROI 模式控制 (微調模式)
-                ============================================== */}
-
-                {
-                  developerMode
-
-                  ? (
-
-                    <div
-                      className="
-                        w-full
-                        max-w-4xl
-                        flex
-                        flex-col
-                        sm:flex-row
-                        justify-end
-                        gap-3
-                      "
-                    >
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setCustomRoiLayouts((prev) => {
-                            const next = { ...prev, [roiCount]: DEFAULT_ROI_LAYOUTS[roiCount] };
-                            localStorage.setItem("tribal_custom_rois", JSON.stringify(next));
-                            return next;
-                          });
-                          alert(`已將 ${roiCount} 件模式的框線恢復為預設位置！`);
-                        }}
-                        className="btn-ghost focus-ring h-12 px-6"
-                      >
-                        ↺ 重設為預設框線
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setDeveloperMode(false);
-                        }}
-                        className="btn-press focus-ring h-12 px-8 bg-forest text-paper text-lg"
-                      >
-                        ✓ 完成微調
-                      </button>
-
-                    </div>
-
-                  )
-
-                  : (
-
-                    /* =========================================
-                        一般操作
-                    ========================================== */
-
-                    <div
-                      className="
-                        w-full
-                        max-w-4xl
-                        flex
-                        flex-col
-                        gap-3
-                      "
-                    >
-
-
-                      {/* 主要辨識 */}
-
-                      <button
-
-                        onClick={
-                          handleCameraButton
-                        }
-
-                        disabled={
-                          scanPhase ===
-                          "SCANNING"
-                        }
-
-                        className={`btn-press focus-ring w-full h-16 text-2xl ${
-                          scanPhase === "SCANNING"
-                            ? "bg-sand text-ink"
-                            : uploadedImagePreview
-                            ? "bg-paper text-ink"
-                            : "bg-clay text-paper"
-                        }`}
-                      >
-
-                        {
-                          scanPhase ===
-                          "SCANNING"
-
-                            ? "辨識中..."
-
-                            : uploadedImagePreview
-
-                            ? "返回相機"
-
-                            : "拍照辨識"
-                        }
-
-                      </button>
-
-
-                      {/* 第二排 */}
-
-                      <div
-                        className="
-                          grid
-                          grid-cols-1
-                          sm:grid-cols-2
-                          gap-3
-                        "
-                      >
-
-                        <button
-
-                          onClick={() =>
-                            imageInputRef.current
-                              ?.click()
-                          }
-
-                          disabled={
-                            scanPhase ===
-                            "SCANNING"
-                          }
-
-                          className="btn-ghost focus-ring w-full h-12 text-[17px]"
-                        >
-
-                          從電腦匯入照片
-
-                        </button>
-
-
-                        <button
-
-                          onClick={() =>
-                            navigate(
-                              "/products"
-                            )
-                          }
-
-                          className="btn-ghost focus-ring w-full h-12 text-[17px]"
-                        >
-
-                          手動選擇商品
-
-                        </button>
-
-                      </div>
-
-                    </div>
-
-                  )
-                }
-
-              </div>
-
-            )
-
-            : (
-
-              /* =================================================
-                  辨識結果 (多商品數量聚合與觸控加減微調，與 ProductSelectPage 風格一致)
-              ================================================== */
-
-              <div className="flex-1 min-h-0 flex flex-col gap-3">
-                {/* 頂部辨識資訊與操作列 */}
-                <div className="flex items-center justify-between pb-3 border-b-2 border-sand shrink-0">
-                  <div className="flex items-center gap-3">
-                    <span className="font-display text-xl text-ink">
-                      辨識結果
-                    </span>
-                    {scanData?.total_objects_detected !== undefined && (
-                      <span className="chip bg-moss text-ink">
-                        偵測到 {scanData.total_objects_detected} 件物品
-                      </span>
-                    )}
-                    {scanData?.unrecognized_count > 0 && (
-                      <span className="chip bg-peach text-rust">
-                        {scanData.unrecognized_count} 件未辨識
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setScanPhase("IDLE");
-                        setScanData(null);
-                        setUploadedImagePreview(null);
-                      }}
-                      className="btn-ghost focus-ring h-11 px-4 text-sm"
-                    >
-                      重新拍照
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => navigate("/products")}
-                      className="btn-ghost focus-ring h-11 px-4 text-sm"
-                    >
-                      手動選擇商品
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        resetAll();
-                        setScanData(null);
-                        setScanPhase("IDLE");
-                        setUploadedImagePreview(null);
-                      }}
-                      className="btn-ghost focus-ring h-11 px-4 text-sm hover:bg-peach hover:text-rust"
-                      title="清空目前購物車並重新開始"
-                    >
-                      清空
-                    </button>
-                  </div>
-                </div>
-
-                {/* 商品卡片區 - 與 ProductSelectPage.jsx 完全一致的風格 */}
-                <div
-                  className="flex-1 overflow-y-scroll pr-3 min-h-0
-                    [&::-webkit-scrollbar]:w-2
-                    [&::-webkit-scrollbar-track]:bg-wheat
-                    [&::-webkit-scrollbar-track]:rounded-full
-                    [&::-webkit-scrollbar-thumb]:bg-sand
-                    [&::-webkit-scrollbar-thumb]:rounded-full
-                    hover:[&::-webkit-scrollbar-thumb]:bg-clay"
-                >
-                  {cart.length === 0 ? (
-                    <div className="h-64 flex flex-col items-center justify-center text-ink/50 gap-3">
-                      <CartIcon size={56} />
-                      <p className="text-base font-medium">購物車目前沒有商品</p>
-                      <div className="flex gap-3 mt-2">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setScanPhase("IDLE");
-                            setUploadedImagePreview(null);
-                          }}
-                          className="btn-press focus-ring h-12 px-5 bg-forest text-paper text-lg"
-                        >
-                          重新拍照
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => navigate("/products")}
-                          className="btn-ghost focus-ring h-12 px-5"
-                        >
-                          手動選擇商品
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex flex-wrap gap-3">
-                      {cart.map((item) => (
-                        <div
-                          key={item.id ?? item.product_id ?? item.name}
-                          data-testid={`cart-card-${item.name}`}
-                          className="w-44 flex-none bg-paper border-[3px] border-ink rounded-[22px] shadow-press overflow-hidden flex flex-col"
-                        >
-                          <div className="w-full h-44 bg-wheat border-b-[3px] border-ink flex items-center justify-center p-3 shrink-0">
-                            {item.image_url ? (
-                              <img
-                                src={
-                                  item.image_url.startsWith("http")
-                                    ? item.image_url
-                                    : item.image_url.replace(
-                                        "/uploads/product_photos/",
-                                        "/photo/"
-                                      )
-                                }
-                                alt={item.name}
-                                className="max-w-full max-h-full object-contain mx-auto"
-                              />
-                            ) : (
-                              <span className="text-4xl">{item.image || "🛍️"}</span>
-                            )}
-                          </div>
-
-                          <div className="p-3 flex flex-col gap-1.5">
-                            <div
-                              className="text-base font-bold text-ink truncate"
-                              title={item.name}
-                            >
-                              {item.name}
-                            </div>
-                            <div className="font-display text-[22px] text-rust">
-                              NT${item.price}
-                            </div>
-
-                            <div className="self-start flex items-center gap-1.5 mt-1 bg-wheat rounded-full p-1">
-                              <button
-                                type="button"
-                                data-testid={`btn-dec-${item.name}`}
-                                onClick={() => decreaseQty(item.id ?? item.product_id)}
-                                className="focus-ring w-[34px] h-[34px] rounded-full bg-paper text-xl font-bold flex items-center justify-center active:scale-95 transition cursor-pointer select-none"
-                                aria-label="減少數量"
-                              >
-                                −
-                              </button>
-                              <span className="min-w-6 text-center text-lg font-bold text-ink select-none">
-                                {item.quantity}
-                              </span>
-                              <button
-                                type="button"
-                                data-testid={`btn-inc-${item.name}`}
-                                onClick={() => increaseQty(item.id ?? item.product_id)}
-                                className="focus-ring w-[34px] h-[34px] rounded-full bg-paper text-xl font-bold flex items-center justify-center active:scale-95 transition cursor-pointer select-none"
-                                aria-label="增加數量"
-                              >
-                                +
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-            )
-          }
-
-        </div>
-
-
-        {/* ===================================================
-            隱藏圖片 Input
-        ==================================================== */}
-
-        <input
-
-          ref={
-            imageInputRef
-          }
-
-          type="file"
-
-          accept="image/*"
-
-          onChange={
-            handleImageUpload
-          }
-
-          className="hidden"
-
-        />
-
-
-        {/* ===================================================
-            底部購物車
-        ==================================================== */}
-
-        <div className="panel shrink-0 flex items-center gap-4 py-3.5 pr-4 pl-7">
-          <CartIcon />
-          <span className="text-[17px]">購物車</span>
-          <span className="font-display text-[30px]">
-            {cart.length} 項 · NT${totalAmount}
-          </span>
-
-          {/* 右側按鈕群 */}
-          <div className="ml-auto flex items-center gap-3 shrink-0">
-            <button
-              type="button"
-              onClick={() => navigate("/cart")}
-              disabled={cart.length === 0}
-              className="btn-ghost focus-ring h-16 px-6 text-xl"
-            >
-              查看清單
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate("/payment")}
-              disabled={cart.length === 0}
-              className="btn-press focus-ring h-16 px-[34px] bg-clay text-paper text-[26px]"
-            >
-              前往結帳
-            </button>
+                <CameraIcon size={22} />
+                重新拍照
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  resetAll();
+                  setScanData(null);
+                  setScanPhase("IDLE");
+                  setUploadedImagePreview(null);
+                }}
+                className="btn-ghost focus-ring h-12 px-4 hover:bg-peach hover:text-rust"
+                title="清空目前購物車並重新開始"
+              >
+                清空
+              </button>
+            </div>
           </div>
-        </div>
 
-      </div>
+          <div className="flex-1 overflow-y-auto pr-2 min-h-0 flex flex-col">
+            {resultItems.length === 0 ? (
+              <div className="h-full flex flex-col items-center justify-center text-ink/50 gap-3">
+                <CartIcon size={56} />
+                <p className="text-lg font-medium">這次沒有辨識到商品</p>
+              </div>
+            ) : (
+              <div className="my-auto flex flex-wrap justify-center gap-5 p-0.5 pb-2">
+                {resultItems.map((item) => (
+                  <div
+                    key={item.id ?? item.product_id ?? item.name}
+                    data-testid={`cart-card-${item.name}`}
+                    className="w-[calc((100%-2.5rem)/3)] bg-paper border-[3px] border-ink rounded-[22px] shadow-press overflow-hidden flex flex-col"
+                  >
+                    <div className="h-[240px] bg-wheat border-b-[3px] border-ink flex items-center justify-center p-3 shrink-0">
+                      {item.image_url ? (
+                        <img
+                          src={cartImgSrc(item.image_url)}
+                          alt={item.name}
+                          className="max-w-full max-h-full object-contain rounded-md"
+                        />
+                      ) : (
+                        <CartIcon size={40} />
+                      )}
+                    </div>
 
+                    <div className="px-5 pt-4 pb-5 flex flex-col gap-4">
+                      <div className="flex justify-between items-baseline gap-3">
+                        <span className="font-bold text-2xl truncate" title={item.name}>{item.name}</span>
+                        <span className="font-display text-[30px] text-rust shrink-0">NT${item.price}</span>
+                      </div>
+
+                      <div className="self-start flex items-center gap-2 bg-wheat rounded-full p-1.5">
+                        <button
+                          type="button"
+                          data-testid={`btn-dec-${item.name}`}
+                          onClick={() => decreaseQty(item.id ?? item.product_id)}
+                          className={stepClassLg}
+                          aria-label="減少數量"
+                        >
+                          −
+                        </button>
+                        <span className="min-w-10 text-center font-display text-[28px] select-none">
+                          {item.quantity}
+                        </span>
+                        <button
+                          type="button"
+                          data-testid={`btn-inc-${item.name}`}
+                          onClick={() => increaseQty(item.id ?? item.product_id)}
+                          className={stepClassLg}
+                          aria-label="增加數量"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* 隱藏圖片 Input */}
+      <input
+        ref={imageInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleImageUpload}
+        className="hidden"
+      />
+
+      {/* ===================================================
+          右：購物車清單 → 前往結帳 → 手動選擇
+      ==================================================== */}
+
+      <aside className="flex flex-col gap-3.5 min-h-0">
+        <section className="panel rounded-3xl flex-1 min-h-0 px-4 pt-4 pb-3.5 flex flex-col gap-2.5">
+          <div className="flex items-baseline justify-between">
+            <h2 className="font-display text-[26px]">購物車</h2>
+            <span className="text-base font-bold">共 {cartCount} 件</span>
+          </div>
+
+          <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-2">
+            {cart.length === 0 ? (
+              <div className="flex-1 flex flex-col items-center justify-center gap-2 text-ink/50 text-center px-4">
+                <CartIcon size={40} />
+                <p className="text-base">拍照辨識後，商品會出現在這裡</p>
+              </div>
+            ) : (
+              cart.map((item) => (
+                <div
+                  key={item.id ?? item.product_id ?? item.name}
+                  className="flex items-center gap-2.5 bg-cream rounded-[14px] py-2 pl-2 pr-3"
+                >
+                  <div className="w-12 h-12 shrink-0 rounded-[10px] border-2 border-sand bg-paper overflow-hidden flex items-center justify-center">
+                    {item.image_url ? (
+                      <img
+                        src={cartImgSrc(item.image_url)}
+                        alt=""
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <CartIcon size={24} />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-bold text-[17px] truncate">{item.name}</div>
+                    <div className="text-sm">×{item.quantity}</div>
+                  </div>
+                  <div className="font-display text-[19px] text-rust shrink-0">
+                    NT${item.price * item.quantity}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          <div className="flex justify-between items-baseline border-t-2 border-dashed border-sand pt-2.5">
+            <span className="text-[17px] font-bold">小計</span>
+            <span className="font-display text-[34px] text-forest">NT${totalAmount}</span>
+          </div>
+        </section>
+
+        <button
+          type="button"
+          onClick={() => navigate("/cart")}
+          disabled={cart.length === 0}
+          className="btn-press focus-ring h-[72px] shrink-0 gap-3 bg-forest text-paper text-[26px]"
+        >
+          前往結帳
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M5 12h14M13 6l6 6-6 6" />
+          </svg>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => navigate("/products")}
+          className="focus-ring h-[60px] shrink-0 rounded-2xl border-[3px] border-forest bg-paper text-forest font-bold text-[19px] inline-flex items-center justify-center gap-2.5 cursor-pointer"
+        >
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <rect x="3" y="3" width="7" height="7" rx="1.5" />
+            <rect x="14" y="3" width="7" height="7" rx="1.5" />
+            <rect x="3" y="14" width="7" height="7" rx="1.5" />
+            <rect x="14" y="14" width="7" height="7" rx="1.5" />
+          </svg>
+          辨識不到？手動選擇商品
+        </button>
+      </aside>
     </div>
-
   );
 }

@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCheckout } from "../context/CheckoutContext";
 import CartIcon from "../components/CartIcon";
+import BackButton from "../components/BackButton";
 
 const normalizeCategory = (c) => (c || "").trim();
 
@@ -52,6 +53,7 @@ export default function ProductSelectPage() {
     <div className="flex-1 min-h-0 grid grid-cols-[150px_minmax(0,1fr)] gap-6">
       {/* 左側類別欄 */}
       <nav className="flex flex-col gap-3 min-h-0" aria-label="類別">
+        <BackButton to="/scan" className="self-stretch" />
         <div className="text-[15px] font-bold pl-1">類別</div>
         <div className="flex flex-col gap-3 overflow-y-auto">
           {categories.map((cat) => (
@@ -69,12 +71,6 @@ export default function ProductSelectPage() {
             </button>
           ))}
         </div>
-        <button
-          onClick={() => navigate("/scan")}
-          className="btn-ghost mt-auto h-14 text-[17px] shrink-0"
-        >
-          返回掃描
-        </button>
       </nav>
 
       {/* 右側商品區 */}

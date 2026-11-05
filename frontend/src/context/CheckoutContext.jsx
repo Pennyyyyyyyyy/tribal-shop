@@ -32,6 +32,8 @@ export function CheckoutProvider({ children }) {
   const [products, setProducts] = useState(MOCK_ITEMS);
   const [isTribalMember, setIsTribalMember] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState(null);
+  // 遊客結帳前的食譜推薦是否已經出現過（每位客人只跳一次）
+  const [recipeShown, setRecipeShown] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -176,6 +178,7 @@ export function CheckoutProvider({ children }) {
     setCart([]);
     setIsTribalMember(false);
     setPaymentMethod(null);
+    setRecipeShown(false);
   };
 
   return (
@@ -193,6 +196,8 @@ export function CheckoutProvider({ children }) {
         setIsTribalMember,
         paymentMethod,
         setPaymentMethod,
+        recipeShown,
+        setRecipeShown,
         totalAmount,
         cartCount,
         resetAll,

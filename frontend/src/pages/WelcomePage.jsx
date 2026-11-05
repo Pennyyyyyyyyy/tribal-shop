@@ -1,15 +1,12 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { useCheckout } from "../context/CheckoutContext";
-import { useVoiceInstruction } from "../hooks/useVoiceInstruction";
 import BrandMark from "../components/BrandMark";
 
 export default function WelcomePage() {
   const navigate = useNavigate();
-  const { setIsTribalMember } = useCheckout();
+  const { setIsTribalMember, setRecipeShown } = useCheckout();
 
-  // 語音指示
-  useVoiceInstruction("歡迎來到 Go-Remote 自助結帳系統，請在畫面上選擇您的身份。");
 
   return (
     <div className="relative flex-1 overflow-hidden">
@@ -37,6 +34,7 @@ export default function WelcomePage() {
             data-testid="btn-guest"
             onClick={() => {
               setIsTribalMember(false);
+              setRecipeShown(false);
               navigate("/instruction");
             }}
             className="btn-press w-[216px] h-24 rounded-[20px] shadow-press-lg bg-clay text-paper text-4xl"
@@ -52,7 +50,7 @@ export default function WelcomePage() {
             }}
             className="btn-press w-[216px] h-24 rounded-[20px] shadow-press-lg bg-forest text-paper text-4xl"
           >
-            族人
+            居民
           </button>
         </div>
       </div>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCheckout } from "../context/CheckoutContext";
-import { useVoiceInstruction } from "../hooks/useVoiceInstruction";
+import BackButton from "../components/BackButton";
 
 export default function PaymentPage() {
   const navigate = useNavigate();
@@ -11,17 +11,6 @@ export default function PaymentPage() {
   const [insertedAmount, setInsertedAmount] = useState(0);
   const remaining = Math.max(0, totalAmount - insertedAmount);
 
-  // 語音指示 (無語音指令，純語音引導)
-  useVoiceInstruction(
-    isTribalMember
-      ? "請使用賒帳流程完成結帳"
-      : insertedAmount >= totalAmount
-      ? "投入金額已達標，感謝您的購買，即將為您完成結帳！"
-      : insertedAmount > 0
-      ? `已投入 ${insertedAmount} 元，還差 ${remaining} 元。`
-      : `本次消費金額 ${totalAmount} 元，請將硬幣投入投幣機。`,
-    [isTribalMember, totalAmount, insertedAmount, remaining]
-  );
 
   // 監聽後端投幣機 WebSocket 廣播
   useEffect(() => {
@@ -76,7 +65,7 @@ export default function PaymentPage() {
     return (
       <div className="flex-1 flex flex-col items-center justify-center gap-6 text-center">
         <h1 className="font-display text-[44px]">結帳</h1>
-        <p className="text-[22px]">你目前選的是「族人」，請使用賒帳流程結帳。</p>
+        <p className="text-[22px]">你目前選的是「居民」，請使用賒帳流程結帳。</p>
         <div className="flex gap-5">
           <button
             onClick={() => navigate("/auth")}
@@ -99,7 +88,8 @@ export default function PaymentPage() {
   const reached = insertedAmount >= totalAmount;
 
   return (
-    <div className="flex-1 min-h-0 grid grid-cols-[minmax(0,1fr)_380px] gap-10 px-6 py-4">
+    <div className="flex-1 min-h-0 grid grid-cols-[minmax(0,1fr)_380px] grid-rows-[auto_minmax(0,1fr)] gap-x-10 gap-y-5 px-6 pb-4">
+      <BackButton to="/evidence" className="col-span-full justify-self-start" />
       <section className="panel rounded-[28px] shadow-press-lg px-12 py-10 flex flex-col justify-center gap-7">
         <div className="text-[22px] font-bold">已投入金額</div>
         <div className="flex items-baseline gap-[18px]">
@@ -134,11 +124,7 @@ export default function PaymentPage() {
       </section>
 
       <aside className="flex flex-col gap-5">
-        <h1 className="font-display text-[44px] leading-tight">
-          請投入
-          <br />
-          硬幣或紙鈔
-        </h1>
+        <h1 className="font-display text-[44px] leading-tight">請投入硬幣</h1>
         <p className="text-xl leading-[1.7]">
           請把錢投入投幣機，金額投滿後會自動完成結帳。
         </p>
@@ -150,13 +136,7 @@ export default function PaymentPage() {
           onClick={handleComplete}
           className="btn-press mt-auto h-[72px] px-4 bg-forest text-paper text-[22px] text-center"
         >
-          {reached ? "立即完成結帳" : "紙鈔已手動投入，直接完成"}
-        </button>
-        <button
-          onClick={() => navigate("/evidence")}
-          className="btn-ghost h-14 text-lg"
-        >
-          返回拍照存證
+          {reached ? "立即完成結帳" : "機器故障已通知店長"}
         </button>
       </aside>
     </div>

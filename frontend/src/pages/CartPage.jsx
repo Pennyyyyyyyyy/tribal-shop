@@ -4,7 +4,6 @@ import { useCheckout } from "../context/CheckoutContext";
 import RecipePopup from "../components/RecipePopup";
 import { RECIPES, detectCategory } from "../data/recipes";
 import { getMakauCartItem } from "../data/catalog";
-import { useVoiceInstruction } from "../hooks/useVoiceInstruction";
 
 function pickPopupMode(cart) {
   const { hasCoffee, hasTea, hasNoodle, hasMakau } = detectCategory(cart);
@@ -28,6 +27,8 @@ export default function CartPage() {
     isTribalMember,
     addItemToCart,
     products,
+    recipeShown,
+    setRecipeShown,
   } = useCheckout();
 
   const [popup, setPopup] = useState({ mode: null, recipe: null });
@@ -36,10 +37,12 @@ export default function CartPage() {
 
   const handleCheckoutClick = () => {
     if (cart.length === 0) return;
-    if (isTribalMember) {
+    // 居民不推薦；遊客已經看過一次推薦，就直接進下一步
+    if (isTribalMember || recipeShown) {
       navigate("/evidence");
       return;
     }
+    setRecipeShown(true);
     setPopup(pickPopupMode(cart));
   };
 
@@ -59,13 +62,6 @@ export default function CartPage() {
     closePopup();
   };
 
-  // 語音指示
-  useVoiceInstruction(
-    cart.length > 0
-      ? `購物車目前有 ${cart.length} 項商品，總金額為 ${totalAmount} 元。確認無誤請點選結帳，或點選繼續辨識。`
-      : "購物車目前是空的，請點選繼續辨識商品。",
-    [cart.length, totalAmount]
-  );
 
   const itemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
   const qtyClass =
@@ -170,7 +166,7 @@ export default function CartPage() {
             onClick={() => navigate("/scan")}
             className="btn-ghost h-14 text-lg"
           >
-            繼續辨識商品
+            返回辨識商品
           </button>
         </div>
 

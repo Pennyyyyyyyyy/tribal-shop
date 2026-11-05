@@ -55,6 +55,27 @@
     @apply inline-block px-3 py-1 rounded-full text-sm font-bold;
   }
 
+  /* POS 相機畫面上的浮動膠囊（返回、鏡頭狀態）與分段切換 */
+  .chipbtn {
+    @apply h-12 px-[18px] rounded-full bg-paper/95 text-ink font-bold text-base inline-flex items-center gap-2 cursor-pointer select-none;
+  }
+  .chipbtn:disabled {
+    @apply opacity-50 cursor-not-allowed;
+  }
+  .seg {
+    @apply flex p-1 gap-1 rounded-full bg-paper/95;
+  }
+  .seg > button {
+    @apply h-10 px-5 rounded-full font-bold text-base text-ink cursor-pointer;
+  }
+  .seg > button.seg-on {
+    @apply bg-forest text-paper;
+  }
+  .seg > button:focus-visible,
+  .chipbtn:focus-visible {
+    @apply outline outline-4 outline-offset-[3px] outline-peach;
+  }
+
   /* 後台表格。用 :where() 壓低權重，讓 th/td 上的 text-right 等 utility 能覆蓋 */
   .data-table {
     @apply w-full border-collapse;
@@ -64,6 +85,16 @@
   }
   .data-table :where(td) {
     @apply px-[18px] py-3 border-t-2 border-wheat text-base align-middle;
+  }
+}
+
+/* 操作說明頁的 3 秒進度條 */
+@keyframes fill-bar {
+  from {
+    width: 0;
+  }
+  to {
+    width: 100%;
   }
 }
 
