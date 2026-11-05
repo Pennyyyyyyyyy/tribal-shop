@@ -45,7 +45,8 @@ export default function ScanPage() {
     cart,
     addItemToCart,
     addItemsToCart,
-    setScannedItems,
+    addScannedItems,
+    removeScan,
     increaseQty,
     decreaseQty,
     resetAll,
@@ -58,6 +59,8 @@ export default function ScanPage() {
   const [camError, setCamError] = useState("");
   // 拍照辨識失敗的原因（顯示在相機畫面上；不再用假資料頂替）
   const [scanError, setScanError] = useState("");
+  // 目前結果畫面對應的是第幾次辨識（「重新拍照」時要撤銷的就是這次）
+  const [currentScanId, setCurrentScanId] = useState(null);
 
   const stepClassLg =
     "focus-ring w-12 h-12 rounded-full bg-paper text-[26px] font-bold flex items-center justify-center active:scale-95 transition cursor-pointer select-none";
@@ -480,7 +483,14 @@ export default function ScanPage() {
             isMock: true,
           }));
 
-      setScannedItems(base);
+      const mockPhoto = await new Promise((resolve) => {
+        const c = document.createElement("canvas");
+        c.width = 320;
+        c.height = 180;
+        c.getContext("2d").fillRect(0, 0, 320, 180);
+        c.toBlob(resolve, "image/jpeg", 0.8);
+      });
+      setCurrentScanId(addScannedItems(base, mockPhoto));
       setScannedResults(
         base
       );
@@ -606,8 +616,8 @@ export default function ScanPage() {
             }));
           }
 
-          // 採用 setScannedItems 取代舊的掃描累積，避免重複吃到歷史紀錄
-          setScannedItems(itemsToAdd);
+          // 累加進購物車，並記下這次拍的照片（結帳時才一起送到 LINE）
+          setCurrentScanId(addScannedItems(itemsToAdd, blob));
 
           setScanData(data);
           setScannedResults(itemsToAdd);
@@ -750,8 +760,8 @@ export default function ScanPage() {
             }));
           }
 
-          // 採用 setScannedItems 取代舊的掃描累積，避免重複吃到歷史紀錄
-          setScannedItems(itemsToAdd);
+          // 累加進購物車，並記下這張匯入的照片
+          setCurrentScanId(addScannedItems(itemsToAdd, file));
 
           setScanData(data);
           setScannedResults(itemsToAdd);
@@ -939,12 +949,19 @@ export default function ScanPage() {
   const scannedIds = new Set(
     (scannedResults || []).map((r) => String(r?.id ?? r?.product_id ?? r?.name))
   );
-  const resultItems = cart.filter(
-    (item) => !item.isManual || scannedIds.has(String(item.id ?? item.product_id ?? item.name))
+  const resultItems = cart.filter((item) =>
+    scannedIds.has(String(item.id ?? item.product_id ?? item.name))
   );
 
+  // 回到相機再拍一次，這次的結果保留在購物車
+  const continueScanning = () => {
+    setScanPhase("IDLE");
+    setScanData(null);
+    setUploadedImagePreview(null);
+  };
+
   return (
-    <div className="flex-1 min-h-0 grid grid-cols-[minmax(0,1fr)_320px] gap-5">
+    <div className="flex-1 min-h-0 grid grid-cols-[minmax(0,1fr)_320px] grid-rows-[minmax(0,1fr)] gap-5">
 
       {/* ===================================================
           左：相機（或辨識結果）
@@ -1211,10 +1228,12 @@ export default function ScanPage() {
               <button
                 type="button"
                 onClick={() => {
-                  setScanPhase("IDLE");
-                  setScanData(null);
-                  setUploadedImagePreview(null);
+                  // 這次辨識不算：把這次加進購物車的數量和照片撤掉再重拍
+                  if (currentScanId !== null) removeScan(currentScanId);
+                  setCurrentScanId(null);
+                  continueScanning();
                 }}
+                title="這次的辨識結果不要，重新拍一次"
                 className="btn-press focus-ring h-12 px-5 bg-clay text-paper text-lg gap-2"
               >
                 <CameraIcon size={22} />
@@ -1360,6 +1379,17 @@ export default function ScanPage() {
             <span className="font-display text-[34px] text-forest">NT${totalAmount}</span>
           </div>
         </section>
+
+        {scanPhase === "RESULT" && (
+          <button
+            type="button"
+            onClick={continueScanning}
+            className="btn-press focus-ring h-[64px] shrink-0 gap-2.5 bg-clay text-paper text-[22px]"
+          >
+            <CameraIcon size={26} />
+            繼續拍照辨識
+          </button>
+        )}
 
         <button
           type="button"

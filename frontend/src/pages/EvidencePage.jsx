@@ -10,7 +10,7 @@ const isE2E =
 
 export default function EvidencePage() {
   const navigate = useNavigate();
-  const { cart, totalAmount, WORKER_URL, resetAll, isTribalMember, startPaymentTimer } =
+  const { cart, totalAmount, WORKER_URL, resetAll, isTribalMember, startPaymentTimer, getCheckoutScanPhotos } =
     useCheckout();
   const itemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
@@ -56,7 +56,12 @@ export default function EvidencePage() {
       const photoBlob = await response.blob();
 
       // 1. 放入購物車與金額
-      formData.append("cart_items", JSON.stringify(cart));
+      // scanQty 只是前端判斷照片歸屬用的，不寫進交易紀錄
+      formData.append("cart_items", JSON.stringify(cart.map((item) => {
+        const rest = { ...item };
+        delete rest.scanQty;
+        return rest;
+      })));
       formData.append("total_amount", totalAmount);
       
       // 2. 標記交易類型（讓 Cloudflare 判斷是否要發 LINE 通知店長）
@@ -64,6 +69,11 @@ export default function EvidencePage() {
       
       // 3. 放入存證照片
       formData.append("photo", photoBlob, "evidence.jpg");
+
+      // 4. 放入辨識照片：只有商品還留在購物車的那幾次辨識
+      getCheckoutScanPhotos().forEach(({ blob }, i) => {
+        formData.append("scan_photos", blob, `scan_${i + 1}.jpg`);
+      });
 
       // 走 VITE_WORKER_URL 環境變數 — 開發指 staging、正式切 production 都在 .env 換掉即可，不動 code。
       const uploadResponse = await fetch(`${WORKER_URL}/checkout`, {

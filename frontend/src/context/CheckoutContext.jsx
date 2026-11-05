@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { notifyManager } from "../service/notify";
 
 // FastAPI 只保留 vision（ML 影像辨識）；商品列表已搬到 Worker。
@@ -24,6 +24,31 @@ const MOCK_ITEMS = [
 ];
 
 const CheckoutContext = createContext(null);
+
+// ── 辨識照片的歸屬 ──────────────────────────────────────────────
+// 購物車每件商品帶 scanQty = { [scanId]: 這次辨識貢獻的數量 }。
+// 結帳時，只有「還有數量留在購物車」的那幾次辨識，照片才會送出。
+
+const sameItem = (p, targetId, name) => {
+  const pId = p.id ?? p.product_id;
+  if (pId !== undefined && pId !== null && targetId !== undefined && targetId !== null) {
+    return String(pId) === String(targetId);
+  }
+  return p.name === name;
+};
+
+const scanTotal = (scanQty) =>
+  Object.values(scanQty || {}).reduce((sum, n) => sum + n, 0);
+
+// 減 1 件時：先扣手動加的數量，扣到只剩辨識來的，才從最近一次辨識扣
+function decreaseScanQty(item) {
+  const scanQty = item.scanQty;
+  if (!scanQty || item.quantity - 1 >= scanTotal(scanQty)) return scanQty;
+  const latest = Math.max(...Object.keys(scanQty).map(Number));
+  const next = { ...scanQty, [latest]: scanQty[latest] - 1 };
+  if (next[latest] <= 0) delete next[latest];
+  return next;
+}
 
 export function useCheckout() {
   const ctx = useContext(CheckoutContext);
@@ -73,23 +98,24 @@ export function CheckoutProvider({ children }) {
     })();
   }, []);
 
-  const setScannedItems = (scannedItems = []) => {
-    setCart((prev) => {
-      // 保留手動加入的商品 (isManual: true)
-      const manualItems = prev.filter((item) => item.isManual);
-      const nextCart = [...manualItems];
+  // 辨識照片只放在記憶體（不寫進本機儲存），結帳送出或 resetAll 就清掉
+  const [scanPhotos, setScanPhotos] = useState([]); // [{ scanId, blob }]
+  const nextScanIdRef = useRef(1);
 
-      for (const rawItem of scannedItems) {
-        if (!rawItem) continue;
+  // 一次拍照辨識的結果「累加」進購物車（不會蓋掉之前的辨識或手動加的商品）。
+  // 回傳這次的 scanId；沒有辨識到任何商品就不記照片。
+  const addScannedItems = (scannedItems = [], photoBlob = null) => {
+    const items = scannedItems.filter(Boolean);
+    const scanId = nextScanIdRef.current++;
+    if (items.length === 0) return scanId;
+    if (photoBlob) setScanPhotos((prev) => [...prev, { scanId, blob: photoBlob }]);
+
+    setCart((prev) => {
+      const nextCart = [...prev];
+      for (const rawItem of items) {
         const targetId = rawItem.id ?? rawItem.product_id;
         const qty = Number(rawItem.quantity) || 1;
-        const index = nextCart.findIndex((p) => {
-          const pId = p.id ?? p.product_id;
-          if (pId !== undefined && pId !== null && targetId !== undefined && targetId !== null) {
-            return String(pId) === String(targetId);
-          }
-          return p.name === rawItem.name;
-        });
+        const index = nextCart.findIndex((p) => sameItem(p, targetId, rawItem.name));
 
         if (index === -1) {
           nextCart.push({
@@ -101,17 +127,46 @@ export function CheckoutProvider({ children }) {
             quantity: qty,
             image_url: rawItem.image_url || rawItem.image,
             isManual: false,
+            scanQty: { [scanId]: qty },
           });
         } else {
+          const cur = nextCart[index];
           nextCart[index] = {
-            ...nextCart[index],
-            image_url: rawItem.image_url || nextCart[index].image_url,
-            quantity: nextCart[index].quantity + qty,
+            ...cur,
+            image_url: rawItem.image_url || cur.image_url,
+            quantity: cur.quantity + qty,
+            scanQty: { ...(cur.scanQty || {}), [scanId]: (cur.scanQty?.[scanId] || 0) + qty },
           };
         }
       }
       return nextCart;
     });
+    return scanId;
+  };
+
+  // 撤銷某一次辨識（「重新拍照」）：扣掉它加進來的數量，照片也丟掉
+  const removeScan = (scanId) => {
+    setScanPhotos((prev) => prev.filter((p) => p.scanId !== scanId));
+    setCart((prev) =>
+      prev
+        .map((it) => {
+          const n = it.scanQty?.[scanId];
+          if (!n) return it;
+          const scanQty = { ...it.scanQty };
+          delete scanQty[scanId];
+          return { ...it, quantity: it.quantity - n, scanQty };
+        })
+        .filter((it) => it.quantity > 0)
+    );
+  };
+
+  // 結帳時要送的辨識照片：還有商品留在購物車的那幾次
+  const getCheckoutScanPhotos = () => {
+    const kept = new Set();
+    for (const it of cart) {
+      for (const [id, n] of Object.entries(it.scanQty || {})) if (n > 0) kept.add(Number(id));
+    }
+    return scanPhotos.filter((p) => kept.has(p.scanId));
   };
 
   const addItemsToCart = (items) => {
@@ -183,7 +238,7 @@ export function CheckoutProvider({ children }) {
       return prev.map((it) => {
         const itId = it.id ?? it.product_id;
         return String(itId) === String(id)
-          ? { ...it, quantity: it.quantity - 1 }
+          ? { ...it, quantity: it.quantity - 1, scanQty: decreaseScanQty(it) }
           : it;
       });
     });
@@ -202,6 +257,7 @@ export function CheckoutProvider({ children }) {
     setPaymentMethod(null);
     setRecipeShown(false);
     setPaymentDeadline(null);
+    setScanPhotos([]);
   };
 
   return (
@@ -211,7 +267,9 @@ export function CheckoutProvider({ children }) {
         setCart,
         addItemToCart,
         addItemsToCart,
-        setScannedItems,
+        addScannedItems,
+        removeScan,
+        getCheckoutScanPhotos,
         increaseQty,
         decreaseQty,
         products,
