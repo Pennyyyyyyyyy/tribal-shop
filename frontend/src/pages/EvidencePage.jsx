@@ -10,7 +10,7 @@ const isE2E =
 
 export default function EvidencePage() {
   const navigate = useNavigate();
-  const { cart, totalAmount, WORKER_URL, resetAll, isTribalMember } =
+  const { cart, totalAmount, WORKER_URL, resetAll, isTribalMember, startPaymentTimer } =
     useCheckout();
   const itemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
@@ -82,6 +82,7 @@ export default function EvidencePage() {
         resetAll();
         navigate("/"); // 居民賒帳完回首頁，店長會在 LINE 收到確認通知
       } else {
+        startPaymentTimer(); // 10 分鐘內沒付完款會通知店長
         navigate("/payment"); // 一般遊客導向支付
       }
     } catch (error) {

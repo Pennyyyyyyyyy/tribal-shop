@@ -1,12 +1,14 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCheckout } from "../context/CheckoutContext";
+import { notifyManager } from "../service/notify";
 import BackButton from "../components/BackButton";
 
 export default function PaymentPage() {
   const navigate = useNavigate();
-  const { totalAmount, isTribalMember, setPaymentMethod, resetAll, API_BASE_URL } =
+  const { totalAmount, isTribalMember, setPaymentMethod, resetAll, clearPaymentTimer, API_BASE_URL } =
     useCheckout();
+  const coinNotifiedRef = useRef(false);
 
   const [insertedAmount, setInsertedAmount] = useState(0);
   const remaining = Math.max(0, totalAmount - insertedAmount);
@@ -51,15 +53,27 @@ export default function PaymentPage() {
     navigate("/");
   };
 
+  // 投幣機故障：通知店長後結束這次結帳
+  const handleDeviceError = () => {
+    notifyManager("device_error");
+    handleComplete();
+  };
+
   // 當投入金額達到或超過消費金額，延遲 1.5 秒自動完成結帳
   useEffect(() => {
     if (!isTribalMember && totalAmount > 0 && insertedAmount >= totalAmount) {
+      // 投幣完成：通知店長一次，並取消付款逾時提醒
+      if (!coinNotifiedRef.current) {
+        coinNotifiedRef.current = true;
+        clearPaymentTimer();
+        notifyManager("coin_complete");
+      }
       const timer = setTimeout(() => {
         handleComplete();
       }, 1500);
       return () => clearTimeout(timer);
     }
-  }, [insertedAmount, totalAmount, isTribalMember]);
+  }, [insertedAmount, totalAmount, isTribalMember, clearPaymentTimer]);
 
   if (isTribalMember) {
     return (
@@ -133,7 +147,7 @@ export default function PaymentPage() {
           <span className="font-display text-[34px]">NT${totalAmount}</span>
         </div>
         <button
-          onClick={handleComplete}
+          onClick={reached ? handleComplete : handleDeviceError}
           className="btn-press mt-auto h-[72px] px-4 bg-forest text-paper text-[22px] text-center"
         >
           {reached ? "立即完成結帳" : "機器故障已通知店長"}

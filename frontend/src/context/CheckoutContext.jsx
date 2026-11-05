@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { notifyManager } from "../service/notify";
 
 // FastAPI 只保留 vision（ML 影像辨識）；商品列表已搬到 Worker。
 // API_BASE_URL 仍指 FastAPI，供 ScanPage 的 /vision/detect-product 使用。
@@ -10,6 +11,9 @@ const API_BASE_URL =
 // Worker：商品列表、結帳、admin。自動移除結尾斜線避免產生雙斜線 //。
 const WORKER_URL =
   (import.meta.env.VITE_WORKER_URL || "https://flying-squirrel-shop-staging.autocheckout2025.workers.dev").replace(/\/+$/, "");
+
+// 遊客結帳（送出存證）後多久還沒付完款就通知店長
+const PAYMENT_TIMEOUT_MS = 10 * 60 * 1000;
 
 const MOCK_ITEMS = [
   { id: 1, name: "蘋果", price: 30, image: "🍎" },
@@ -34,6 +38,24 @@ export function CheckoutProvider({ children }) {
   const [paymentMethod, setPaymentMethod] = useState(null);
   // 遊客結帳前的食譜推薦是否已經出現過（每位客人只跳一次）
   const [recipeShown, setRecipeShown] = useState(false);
+  // 遊客付款期限（timestamp）。null = 沒有在等付款
+  const [paymentDeadline, setPaymentDeadline] = useState(null);
+
+  const startPaymentTimer = useCallback(
+    () => setPaymentDeadline(Date.now() + PAYMENT_TIMEOUT_MS),
+    []
+  );
+  const clearPaymentTimer = useCallback(() => setPaymentDeadline(null), []);
+
+  // 期限到了還沒付完 → 通知店長一次。放在 Provider，客人換頁也不會中斷計時
+  useEffect(() => {
+    if (!paymentDeadline) return;
+    const timer = setTimeout(() => {
+      notifyManager("payment_timeout");
+      setPaymentDeadline(null);
+    }, Math.max(0, paymentDeadline - Date.now()));
+    return () => clearTimeout(timer);
+  }, [paymentDeadline]);
 
   useEffect(() => {
     (async () => {
@@ -179,6 +201,7 @@ export function CheckoutProvider({ children }) {
     setIsTribalMember(false);
     setPaymentMethod(null);
     setRecipeShown(false);
+    setPaymentDeadline(null);
   };
 
   return (
@@ -201,6 +224,8 @@ export function CheckoutProvider({ children }) {
         totalAmount,
         cartCount,
         resetAll,
+        startPaymentTimer,
+        clearPaymentTimer,
         API_BASE_URL,
         WORKER_URL,
       }}
