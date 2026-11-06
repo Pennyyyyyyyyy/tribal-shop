@@ -160,13 +160,21 @@ export function CheckoutProvider({ children }) {
     );
   };
 
-  // 結帳時要送的辨識照片：還有商品留在購物車的那幾次
+  // 結帳時要送的辨識照片：還有商品留在購物車的那幾次。
+  // names = 這張照片辨識到、而且還留在購物車的商品名稱（LINE 通知會寫「商品辨識照片：百事可樂」）
   const getCheckoutScanPhotos = () => {
-    const kept = new Set();
+    const namesByScan = new Map();
     for (const it of cart) {
-      for (const [id, n] of Object.entries(it.scanQty || {})) if (n > 0) kept.add(Number(id));
+      for (const [id, n] of Object.entries(it.scanQty || {})) {
+        if (n <= 0) continue;
+        const key = Number(id);
+        if (!namesByScan.has(key)) namesByScan.set(key, []);
+        namesByScan.get(key).push(it.name);
+      }
     }
-    return scanPhotos.filter((p) => kept.has(p.scanId));
+    return scanPhotos
+      .filter((p) => namesByScan.has(p.scanId))
+      .map((p) => ({ ...p, names: namesByScan.get(p.scanId) }));
   };
 
   const addItemsToCart = (items) => {

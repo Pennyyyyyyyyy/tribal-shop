@@ -71,9 +71,12 @@ export default function EvidencePage() {
       formData.append("photo", photoBlob, "evidence.jpg");
 
       // 4. 放入辨識照片：只有商品還留在購物車的那幾次辨識
-      getCheckoutScanPhotos().forEach(({ blob }, i) => {
+      //    scan_photo_items 跟照片同順序，記每張照片辨識到的商品名稱
+      const scanPhotos = getCheckoutScanPhotos();
+      scanPhotos.forEach(({ blob }, i) => {
         formData.append("scan_photos", blob, `scan_${i + 1}.jpg`);
       });
+      formData.append("scan_photo_items", JSON.stringify(scanPhotos.map(({ names }) => names)));
 
       // 走 VITE_WORKER_URL 環境變數 — 開發指 staging、正式切 production 都在 .env 換掉即可，不動 code。
       const uploadResponse = await fetch(`${WORKER_URL}/checkout`, {
